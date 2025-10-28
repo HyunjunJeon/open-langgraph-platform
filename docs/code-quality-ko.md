@@ -6,7 +6,7 @@
 
 ```bash
 # 1. 저장소 클론
-git clone https://github.com/YOUR_USERNAME/opensource-langgraph-platform.git
+git clone https://github.com/HyunjunJeon/open-langgraph-platform.git
 cd opensource-langgraph-platform
 
 # 2. 의존성 및 후크 설치

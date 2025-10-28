@@ -27,6 +27,6 @@ OpenSource LangGraph Platform 문서에 오신 것을 환영합니다! 개발을
 
 ## 📋 도움 받기
 
-- **이슈**: [GitHub Issues](https://github.com/ibbybuilds/opensource-langgraph-platform/issues)
-- **토론**: [GitHub Discussions](https://github.com/ibbybuilds/opensource-langgraph-platform/discussions)
+- **이슈**: [GitHub Issues](https://github.com/HyunjunJeon/open-langgraph-platform/issues)
+- **토론**: [GitHub Discussions](https://github.com/HyunjunJeon/open-langgraph-platform/discussions)
 - **문서**: [Alembic Docs](https://alembic.sqlalchemy.org/)

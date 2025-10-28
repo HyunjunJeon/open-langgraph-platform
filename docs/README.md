@@ -27,6 +27,6 @@ Welcome to the OpenSource LangGraph Platform documentation! Here you'll find eve
 
 ## 📋 Getting Help
 
-- **Issues**: [GitHub Issues](https://github.com/ibbybuilds/OpenSource LangGraph Platform/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/ibbybuilds/OpenSource LangGraph Platform/discussions)
+- **Issues**: [GitHub Issues](https://github.com/HyunjunJeon/open-langgraph-platform/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/HyunjunJeon/open-langgraph-platform/discussions)
 - **Documentation**: [Alembic Docs](https://alembic.sqlalchemy.org/)

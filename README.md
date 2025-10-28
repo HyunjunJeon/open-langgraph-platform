@@ -47,7 +47,7 @@ LangGraph Platform을 자체 인프라로 대체하세요.
 
 ```bash
 # 클론 및 설정
-git clone https://github.com/ibbybuilds/open-langgraph.git
+git clone https://github.com/HyunjunJeon/open-langgraph-platform.git
 cd open-langgraph
 # uv가 없다면 설치
 curl -LsSf https://astral.sh/uv/install.sh | sh

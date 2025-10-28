@@ -32,7 +32,7 @@ Welcome to Open LangGraph! This guide will help you get started with development
 
 ```bash
 # 1. Clone and setup
-git clone https://github.com/ibbybuilds/open-langgraph.git
+git clone https://github.com/HyunjunJeon/open-langgraph-platform.git
 cd open-langgraph
 uv install
 

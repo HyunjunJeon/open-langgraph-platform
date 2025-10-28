@@ -6,7 +6,7 @@
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/YOUR_USERNAME/opensource-langgraph-platform.git
+git clone https://github.com/HyunjunJeon/open-langgraph-platform.git
 cd opensource-langgraph-platform
 
 # 2. Install dependencies and hooks

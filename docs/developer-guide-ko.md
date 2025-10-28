@@ -32,7 +32,7 @@ Open LangGraph에 오신 것을 환영합니다! 이 가이드는 데이터베�
 
 ```bash
 # 1. 클론 및 설정
-git clone https://github.com/ibbybuilds/open-langgraph.git
+git clone https://github.com/HyunjunJeon/open-langgraph-platform.git
 cd open-langgraph
 uv install
 
