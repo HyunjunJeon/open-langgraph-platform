@@ -30,7 +30,6 @@ LangGraph Platform을 자체 인프라로 대체하세요.
 - 셀프 호스팅: 자체 인프라에서 실행, 자체 규칙 적용
 - 드롭인 대체: 기존 LangGraph Client SDK를 변경 없이 사용
 - 프로덕션 준비: PostgreSQL 영속성, 스트리밍, 인증
-- 벤더 종속 제로: Apache 2.0 라이선스, 오픈소스, 완전한 제어
 - 빠른 설정: Docker로 5분 만에 배포
 - Agent Protocol 준수: 오픈소스 [Agent Protocol](https://github.com/langchain-ai/agent-protocol) 사양 구현
 - Agent Chat UI 호환: [LangChain의 Agent Chat UI](https://github.com/langchain-ai/agent-chat-ui)와 원활하게 작동
