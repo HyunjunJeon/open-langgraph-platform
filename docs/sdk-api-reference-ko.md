@@ -1,11 +1,14 @@
 # LangGraph SDK API Reference
 
-> 이 문서는 `scripts/analyze_sdk_api.py`로 자동 생성되었습니다.
-
 ## 개요
 
-LangGraph SDK (0.2.4)가 제공하는 공식 클라이언트 API 메서드 목록입니다.
+LangGraph SDK (0.2.9)가 제공하는 공식 클라이언트 API 메서드 목록입니다.
 OpenSource LangGraph Platform는 이 API 스펙을 준수하여 구현되어야 합니다.
+
+## 변경 이력
+
+- **0.2.9**: CronsClient 추가 (스케줄링된 작업 관리)
+- **0.2.4**: 초기 문서화
 
 ## AssistantsClient
 
@@ -987,3 +990,185 @@ Args:
 
 ---
 
+## CronsClient
+
+> Client for managing scheduled cron jobs in LangGraph.
+
+Cron jobs allow you to schedule recurring runs of your graph on a specific schedule.
+This is useful for periodic tasks like daily reports, scheduled notifications, or automated maintenance.
+
+???+ example "Example"
+
+    ```python
+    client = get_client(url="http://localhost:2024")
+    # Create a cron job that runs daily at 9 AM
+    cron = await client.crons.create(
+        assistant_id="assistant_123",
+        schedule="0 9 * * *",
+        input={"task": "daily_report"}
+    )
+    ```
+
+**메서드 개수:** 5개
+
+| 메서드 | 파라미터 | 반환 타입 |
+|--------|----------|----------|
+| `count()` | assistant_id, thread_id, headers, params | int |
+| `create()` | assistant_id, schedule, input, metadata, config, context, checkpoint_during, interrupt_before, interrupt_after, webhook, multitask_strategy, headers, params | Run |
+| `create_for_thread()` | thread_id, assistant_id, schedule, input, metadata, config, context, checkpoint_during, interrupt_before, interrupt_after, webhook, multitask_strategy, headers, params | Run |
+| `delete()` | cron_id, headers, params | None |
+| `search()` | assistant_id, thread_id, limit, offset, sort_by, sort_order, select, headers, params | list[Cron] |
+
+### 메서드 상세
+
+#### `count()`
+
+Count cron jobs matching filters.
+
+Args:
+    assistant_id: Assistant ID to filter by.
+    thread_id: Thread ID to filter by.
+    headers: Optional custom headers to include with the request.
+    params: Optional query parameters to include with the request.
+
+**Parameters:**
+
+- `assistant_id` (str | None) = None
+- `thread_id` (str | None) = None
+- `headers` (Mapping[str, str] | None) = None
+- `params` (QueryParamTypes | None) = None
+
+**Returns:** int
+
+---
+
+#### `create()`
+
+Create a cron job.
+
+Args:
+    assistant_id: The assistant ID or graph name to use for the cron job.
+        If using graph name, will default to first assistant created from that graph.
+    schedule: The cron schedule string (e.g., "0 9 * * *" for daily at 9 AM).
+    input: The input to pass to the graph on each run.
+    metadata: Metadata to attach to the cron job.
+    config: Configuration to use for runs.
+    context: Context to include in runs.
+    checkpoint_during: Whether to checkpoint during execution.
+    interrupt_before: Interrupt before these nodes.
+    interrupt_after: Interrupt after these nodes.
+    webhook: Webhook URL to call on completion.
+    multitask_strategy: Strategy for handling multiple tasks.
+    headers: Optional custom headers to include with the request.
+    params: Optional query parameters to include with the request.
+
+**Parameters:**
+
+- `assistant_id` (str)
+- `schedule` (str)
+- `input` (Mapping[str, Any] | None) = None
+- `metadata` (Mapping[str, Any] | None) = None
+- `config` (Config | None) = None
+- `context` (Context | None) = None
+- `checkpoint_during` (bool | None) = None
+- `interrupt_before` (All | list[str] | None) = None
+- `interrupt_after` (All | list[str] | None) = None
+- `webhook` (str | None) = None
+- `multitask_strategy` (str | None) = None
+- `headers` (Mapping[str, str] | None) = None
+- `params` (QueryParamTypes | None) = None
+
+**Returns:** Run
+
+---
+
+#### `create_for_thread()`
+
+Create a cron job for a specific thread.
+
+Args:
+    thread_id: The thread ID to run the cron job on.
+    assistant_id: The assistant ID or graph name to use for the cron job.
+    schedule: The cron schedule string (e.g., "0 9 * * *" for daily at 9 AM).
+    input: The input to pass to the graph on each run.
+    metadata: Metadata to attach to the cron job.
+    config: Configuration to use for runs.
+    context: Context to include in runs.
+    checkpoint_during: Whether to checkpoint during execution.
+    interrupt_before: Interrupt before these nodes.
+    interrupt_after: Interrupt after these nodes.
+    webhook: Webhook URL to call on completion.
+    multitask_strategy: Strategy for handling multiple tasks.
+    headers: Optional custom headers to include with the request.
+    params: Optional query parameters to include with the request.
+
+**Parameters:**
+
+- `thread_id` (str)
+- `assistant_id` (str)
+- `schedule` (str)
+- `input` (Mapping[str, Any] | None) = None
+- `metadata` (Mapping[str, Any] | None) = None
+- `config` (Config | None) = None
+- `context` (Context | None) = None
+- `checkpoint_during` (bool | None) = None
+- `interrupt_before` (All | list[str] | None) = None
+- `interrupt_after` (All | list[str] | None) = None
+- `webhook` (str | None) = None
+- `multitask_strategy` (str | None) = None
+- `headers` (Mapping[str, str] | None) = None
+- `params` (QueryParamTypes | None) = None
+
+**Returns:** Run
+
+---
+
+#### `delete()`
+
+Delete a cron job.
+
+Args:
+    cron_id: The cron ID to delete.
+    headers: Optional custom headers to include with the request.
+    params: Optional query parameters to include with the request.
+
+**Parameters:**
+
+- `cron_id` (str)
+- `headers` (Mapping[str, str] | None) = None
+- `params` (QueryParamTypes | None) = None
+
+**Returns:** None
+
+---
+
+#### `search()`
+
+Get a list of cron jobs.
+
+Args:
+    assistant_id: The assistant ID or graph name to search for.
+    thread_id: The thread ID to search for.
+    limit: The maximum number of results to return.
+    offset: The number of results to skip.
+    sort_by: Field to sort by.
+    sort_order: Sort order (asc/desc).
+    select: Fields to include in the response.
+    headers: Optional custom headers to include with the request.
+    params: Optional query parameters to include with the request.
+
+**Parameters:**
+
+- `assistant_id` (str | None) = None
+- `thread_id` (str | None) = None
+- `limit` (int) = 10
+- `offset` (int) = 0
+- `sort_by` (CronSortBy | None) = None
+- `sort_order` (SortOrder | None) = None
+- `select` (list[CronSelectField] | None) = None
+- `headers` (Mapping[str, str] | None) = None
+- `params` (QueryParamTypes | None) = None
+
+**Returns:** list[Cron]
+
+---

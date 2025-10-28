@@ -2,7 +2,7 @@
 
 **보고서 날짜:** 2025-10-27
 **프로젝트:** OpenSource LangGraph Platform (오픈소스 LangGraph Platform 대안)
-**SDK 버전:** langgraph-sdk 0.2.4
+**SDK 버전:** langgraph-sdk 0.2.9
 
 ## 요약
 

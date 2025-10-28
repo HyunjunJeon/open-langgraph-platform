@@ -1,8 +1,7 @@
 # OpenSource LangGraph Platform API 준수 매트릭스
 
-> 생성일: 2025-10-27
-> SDK 버전: langgraph-sdk 0.2.4
-> OpenSource LangGraph Platform 버전: v0.1.0-alpha
+> OpenSource LangGraph Platform 버전: v0.1.0
+**SDK 버전:** langgraph-sdk 0.2.9
 
 ## 요약
 
@@ -20,6 +19,7 @@
 **SDK 클라이언트**: `AssistantsClient`
 
 **SDK 메서드 (11개)**:
+
 - `count()`
 - `create()`
 - `delete()`
@@ -58,6 +58,7 @@
 **SDK 클라이언트**: `ThreadsClient`
 
 **SDK 메서드 (11개)**:
+
 - `copy()`
 - `count()`
 - `create()`
@@ -96,6 +97,7 @@
 **SDK 클라이언트**: `RunsClient`
 
 **SDK 메서드 (10개)**:
+
 - `cancel()`
 - `create()`
 - `create_batch()`
@@ -131,6 +133,7 @@
 **SDK 클라이언트**: `StoreClient`
 
 **SDK 메서드 (5개)**:
+
 - `delete_item()`
 - `get_item()`
 - `list_namespaces()`
