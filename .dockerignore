@@ -1,0 +1,33 @@
+# VCS
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv
+venv/
+.mypy_cache/
+.pytest_cache/
+
+# Node / frontends
+node_modules/
+
+# Tests & docs (not needed in runtime image)
+tests/
+e2e/
+docs/
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+.DS_Store
+.env
+*.log
+
+

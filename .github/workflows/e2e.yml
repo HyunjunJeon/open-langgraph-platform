@@ -1,0 +1,99 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: open_langgraph
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Create open_langgraph.json config
+        run: |
+          cat > open_langgraph.json << 'EOF'
+          {
+            "graphs": {
+              "agent": "./graphs/react_agent/__init__.py:graph",
+              "agent_hitl": "./graphs/react_agent_hitl/__init__.py:graph",
+              "subgraph_agent": "./graphs/subgraph_agent/__init__.py:graph"
+            },
+            "env": ".env"
+          }
+          EOF
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://user:password@localhost:5432/open_langgraph
+        run: uv run alembic upgrade head
+
+      - name: Start Open LangGraph server in background
+        env:
+          DATABASE_URL: postgresql+asyncpg://user:password@localhost:5432/open_langgraph
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AUTH_TYPE: noop
+          PORT: 8000
+        run: |
+          uv run python run_server.py > server.log 2>&1 &
+          echo $! > server.pid
+          echo "Waiting for server to be ready..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+              echo "Server is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/30: Server not ready yet..."
+            sleep 2
+          done
+          echo "Server failed to start. Logs:"
+          cat server.log
+          exit 1
+
+      - name: Run E2E tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SERVER_URL: http://localhost:8000
+        run: uv run pytest tests/e2e -v --tb=short
+
+      - name: Show server logs on failure
+        if: failure()
+        run: |
+          echo "=== Server Logs ==="
+          cat server.log || echo "No server logs found"
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f server.pid ]; then
+            kill $(cat server.pid) || true
+          fi
