@@ -131,7 +131,7 @@ directory = "htmlcov"
 [dependency-groups]
 dev = [
     "ruff>=0.8.4",
-    "langgraph-sdk==0.2.4",
+    "langgraph-sdk>=0.2.9",
     "mypy>=1.17.1",
     "pytest>=8.4.1",
     "pytest-asyncio>=1.1.0",
