@@ -1,40 +1,40 @@
-"""ReAct 에이전트용 프롬프트 템플릿 모음
+"""Collection of prompt templates for the ReAct agent.
 
-이 모듈은 ReAct 에이전트가 사용하는 프롬프트 템플릿을 정의합니다.
-프롬프트는 에이전트의 행동과 응답 스타일을 결정하는 중요한 구성 요소입니다.
+This module defines the prompt templates used by the ReAct agent.
+Prompts are a crucial component that determines the agent's behavior and response style.
 
-주요 구성 요소:
-• SYSTEM_PROMPT - 에이전트의 기본 시스템 메시지 (역할 정의 및 컨텍스트 제공)
+Main components:
+• SYSTEM_PROMPT - The agent's default system message (defines its role and provides context).
 
-프롬프트 설계 원칙:
-- 에이전트의 역할과 능력을 명확히 정의
-- 시스템 시간 등 동적 컨텍스트 정보 포함
-- LLM이 일관된 행동을 할 수 있도록 명확한 지시사항 제공
+Prompt Design Principles:
+- Clearly define the agent's role and capabilities.
+- Include dynamic context information such as system time.
+- Provide clear instructions to ensure the LLM behaves consistently.
 
-사용 예:
+Usage Example:
     from graphs.react_agent.prompts import SYSTEM_PROMPT
 
-    # 런타임 시 템플릿 변수 치환
+    # Substitute template variables at runtime
     formatted_prompt = SYSTEM_PROMPT.format(system_time=datetime.now())
 """
 
 # ---------------------------------------------------------------------------
-# 시스템 프롬프트
+# System Prompt
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = """You are a helpful AI assistant.
 
 System time: {system_time}"""
-# 템플릿 변수:
-#   - system_time: 현재 시스템 시각 (에이전트에게 시간 컨텍스트 제공)
+# Template variables:
+#   - system_time: The current system time (provides time context to the agent).
 #
-# 역할: 에이전트의 기본 페르소나와 행동 방식을 정의하는 시스템 메시지
+# Role: A system message that defines the agent's basic persona and behavior.
 #
-# 설명:
-#   - "helpful AI assistant": 에이전트가 친절하고 도움이 되는 방식으로 응답하도록 유도
-#   - system_time 변수: 시간 기반 질문이나 스케줄링 관련 작업 시 정확한 답변 가능
+# Description:
+#   - "helpful AI assistant": Guides the agent to respond in a friendly and helpful manner.
+#   - system_time variable: Enables accurate answers for time-based questions or scheduling-related tasks.
 #
-# 참고:
-#   - 이 프롬프트는 대화 시작 시 LLM에게 전달되는 시스템 메시지
-#   - 프롬프트 내용은 영어로 유지 (LLM 모델의 학습 데이터와 일관성)
-#   - 필요 시 프로젝트 요구사항에 맞게 에이전트 역할 커스터마이징 가능
+# Note:
+#   - This prompt is the system message passed to the LLM at the start of a conversation.
+#   - The prompt content is kept in English (for consistency with the LLM model's training data).
+#   - The agent's role can be customized to fit project requirements if needed.

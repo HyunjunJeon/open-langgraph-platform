@@ -1,19 +1,19 @@
-"""ReAct 에이전트 유틸리티 및 헬퍼 함수
+"""ReAct Agent Utilities and Helper Functions
 
-이 모듈은 ReAct 에이전트 그래프에서 사용되는 공통 유틸리티 함수를 제공합니다.
-주로 LangChain 메시지 처리 및 채팅 모델 로딩과 관련된 헬퍼 함수들로 구성됩니다.
+This module provides common utility functions used in the ReAct agent graph.
+It mainly consists of helper functions related to LangChain message processing and chat model loading.
 
-주요 구성 요소:
-• get_message_text() - BaseMessage에서 텍스트 콘텐츠 추출
-• load_chat_model() - 제공자/모델 문자열로부터 채팅 모델 초기화
+Main components:
+• get_message_text() - Extracts text content from a BaseMessage.
+• load_chat_model() - Initializes a chat model from a provider/model string.
 
-사용 예:
+Usage Example:
     from graphs.react_agent.utils import get_message_text, load_chat_model
 
-    # 메시지에서 텍스트 추출
+    # Extract text from a message
     text = get_message_text(ai_message)
 
-    # 채팅 모델 로드
+    # Load a chat model
     model = load_chat_model("openai/gpt-4")
 """
 
@@ -23,27 +23,27 @@ from langchain_core.messages import BaseMessage
 
 
 def get_message_text(msg: BaseMessage) -> str:
-    """LangChain 메시지 객체에서 텍스트 콘텐츠 추출
+    """Extracts text content from a LangChain message object.
 
-    BaseMessage는 다양한 형식의 content를 가질 수 있습니다:
-    - 단순 문자열 (str)
-    - 딕셔너리 (dict) - "text" 키에서 추출
-    - 리스트 (list) - 각 요소를 문자열로 변환 후 결합
+    A BaseMessage can have content in various formats:
+    - A simple string (str).
+    - A dictionary (dict) - extracted from the "text" key.
+    - A list (list) - each element is converted to a string and then joined.
 
-    이 함수는 모든 경우를 처리하여 일관된 문자열 결과를 반환합니다.
+    This function handles all cases to return a consistent string result.
 
-    사용 사례:
-    - AI 응답 메시지에서 텍스트 추출
-    - 사용자 입력 메시지 정규화
-    - 메시지 히스토리 텍스트 변환
+    Use cases:
+    - Extracting text from an AI response message.
+    - Normalizing user input messages.
+    - Transforming message history to text.
 
     Args:
-        msg (BaseMessage): LangChain 메시지 객체 (AIMessage, HumanMessage 등)
+        msg (BaseMessage): A LangChain message object (e.g., AIMessage, HumanMessage).
 
     Returns:
-        str: 추출된 텍스트 콘텐츠 (빈 문자열 가능)
+        str: The extracted text content (can be an empty string).
 
-    예제:
+    Example:
         >>> from langchain_core.messages import HumanMessage
         >>> msg = HumanMessage(content="Hello")
         >>> get_message_text(msg)
@@ -55,53 +55,53 @@ def get_message_text(msg: BaseMessage) -> str:
     """
     content = msg.content
     if isinstance(content, str):
-        # 가장 일반적인 경우: content가 단순 문자열
+        # The most common case: content is a simple string.
         return content
     elif isinstance(content, dict):
-        # 구조화된 콘텐츠: "text" 키에서 추출
+        # Structured content: extract from the "text" key.
         return content.get("text", "")
     else:
-        # 복합 콘텐츠 (리스트 등): 각 부분을 텍스트로 변환 후 결합
+        # Complex content (list, etc.): convert each part to text and then join.
         txts = [c if isinstance(c, str) else (c.get("text") or "") for c in content]
         return "".join(txts).strip()
 
 
 def load_chat_model(fully_specified_name: str) -> BaseChatModel:
-    """제공자와 모델명을 포함한 전체 이름으로 채팅 모델 초기화
+    """Initializes a chat model from a full name including the provider and model.
 
-    이 헬퍼 함수는 "provider/model" 형식의 문자열을 파싱하여
-    LangChain의 init_chat_model()을 호출합니다. 이를 통해 다양한
-    LLM 제공자의 모델을 일관된 방식으로 로드할 수 있습니다.
+    This helper function parses a string in "provider/model" format and calls
+    LangChain's init_chat_model(). This allows loading models from various
+    LLM providers in a consistent way.
 
-    지원되는 제공자 예시:
-    - openai: OpenAI GPT 모델
-    - anthropic: Anthropic Claude 모델
-    - google: Google PaLM/Gemini 모델
-    - cohere: Cohere 모델
+    Supported provider examples:
+    - openai: OpenAI GPT models
+    - anthropic: Anthropic Claude models
+    - google: Google PaLM/Gemini models
+    - cohere: Cohere models
 
-    사용 사례:
-    - Runtime Context에서 모델 설정 읽어서 초기화
-    - 사용자별 커스텀 모델 설정 적용
-    - 환경 변수 기반 모델 전환
+    Use cases:
+    - Initializing from model settings read from the Runtime Context.
+    - Applying user-specific custom model settings.
+    - Switching models based on environment variables.
 
     Args:
-        fully_specified_name (str): "provider/model" 형식 문자열
-                                    예: "openai/gpt-4", "anthropic/claude-3-opus"
+        fully_specified_name (str): A string in "provider/model" format.
+                                    Examples: "openai/gpt-4", "anthropic/claude-3-opus"
 
     Returns:
-        BaseChatModel: 초기화된 채팅 모델 인스턴스
+        BaseChatModel: An initialized chat model instance.
 
     Raises:
-        ValueError: 형식이 잘못된 경우 (슬래시 누락 등)
-        ImportError: 제공자 패키지가 설치되지 않은 경우
+        ValueError: If the format is incorrect (e.g., missing slash).
+        ImportError: If the provider package is not installed.
 
-    예제:
+    Example:
         >>> model = load_chat_model("openai/gpt-4")
         >>> response = model.invoke("Hello!")
 
-        >>> # Runtime Context와 함께 사용
+        >>> # Used with Runtime Context
         >>> model = load_chat_model(runtime.context.model)
     """
-    # "provider/model" 형식을 파싱 (최대 1번만 분할)
+    # Parse the "provider/model" format (split at most once).
     provider, model = fully_specified_name.split("/", maxsplit=1)
     return init_chat_model(model, model_provider=provider)

@@ -295,34 +295,34 @@ class LangGraphService:
         return compiled_graph
 
     async def _load_graph_from_file(self, graph_id: str, graph_info: GraphDefinition) -> Any:
-        """파일 시스템에서 그래프 모듈을 동적으로 로드
+        """Dynamically load a graph module from the filesystem
 
-        이 메서드는 Python 파일에서 그래프 모듈을 동적으로 import하고
-        지정된 export 이름의 그래프 객체를 반환합니다.
+        This method dynamically imports a graph module from a Python file
+        and returns the graph object with the specified export name.
 
-        동작 흐름:
-        1. 파일 경로 존재 확인
-        2. importlib로 모듈 spec 생성
-        3. 모듈을 동적으로 로드 및 실행
-        4. export_name으로 지정된 그래프 객체 추출
-        5. 그래프 객체 반환 (컴파일 여부 무관)
+        Workflow:
+        1. Check if the file path exists
+        2. Create a module spec using importlib
+        3. Dynamically load and execute the module
+        4. Extract the graph object specified by export_name
+        5. Return the graph object (regardless of whether it's compiled)
 
         Args:
-            graph_id (str): 그래프 ID (로깅/디버깅용)
-            graph_info (dict[str, str]): 그래프 정보
-                - file_path: Python 파일 경로
-                - export_name: 모듈에서 export할 변수 이름
+            graph_id (str): Graph ID (for logging/debugging)
+            graph_info (dict[str, str]): Graph information
+                - file_path: Path to the Python file
+                - export_name: Name of the variable to export from the module
 
         Returns:
-            StateGraph | CompiledGraph: 로드된 그래프 객체
-                (컴파일 여부는 모듈에 따라 다름)
+            StateGraph | CompiledGraph: The loaded graph object
+                (compilation status depends on the module)
 
         Raises:
-            ValueError: 파일이 존재하지 않거나 모듈 로드 실패 또는 export를 찾을 수 없는 경우
+            ValueError: If the file does not exist, module loading fails, or the export cannot be found
 
-        참고:
-            그래프는 컴파일된 상태일 수도, 미컴파일 상태일 수도 있습니다.
-            체크포인터 주입은 호출자(get_graph)에서 처리합니다.
+        Note:
+            The graph may be in a compiled or uncompiled state.
+            Checkpointer injection is handled by the caller (get_graph).
         """
         file_path = Path(graph_info["file_path"])
         if not file_path.exists():
@@ -348,27 +348,27 @@ class LangGraphService:
         return graph
 
     def list_graphs(self) -> dict[str, str]:
-        """등록된 모든 그래프 목록 반환
+        """Return a list of all registered graphs
 
         Returns:
-            dict[str, str]: graph_id -> file_path 매핑
-                예: {"weather_agent": "./graphs/weather_agent.py"}
+            dict[str, str]: A mapping of graph_id to file_path
+                e.g., {"weather_agent": "./graphs/weather_agent.py"}
         """
         return {graph_id: info["file_path"] for graph_id, info in self._graph_registry.items()}
 
     def invalidate_cache(self, graph_id: str | None = None) -> None:
-        """그래프 캐시 무효화 (핫 리로드용)
+        """Invalidate the graph cache (for hot reloading)
 
-        이 메서드는 캐시된 그래프를 삭제하여 다음 get_graph() 호출 시
-        파일 시스템에서 그래프를 다시 로드하도록 합니다.
+        This method deletes a cached graph, forcing it to be reloaded from the filesystem
+        on the next get_graph() call.
 
-        사용 사례:
-        - 개발 중 그래프 코드 변경 후 핫 리로드
-        - 배포 후 새 버전의 그래프 적용
+        Use cases:
+        - Hot reloading after changing graph code during development
+        - Applying a new version of a graph after deployment
 
         Args:
-            graph_id (str | None): 무효화할 그래프 ID.
-                None이면 모든 그래프 캐시를 삭제합니다.
+            graph_id (str | None): The ID of the graph to invalidate.
+                If None, clears the entire graph cache.
         """
         if graph_id:
             self._graph_cache.pop(graph_id, None)
@@ -376,18 +376,18 @@ class LangGraphService:
             self._graph_cache.clear()
 
     def get_config(self) -> dict[str, Any] | None:
-        """로드된 설정 파일 내용 반환
+        """Return the loaded configuration file content
 
         Returns:
-            dict[str, Any] | None: open_langgraph.json의 전체 내용
+            dict[str, Any] | None: The full content of open_langgraph.json
         """
         return self.config
 
     def get_dependencies(self) -> list[str]:
-        """설정 파일의 dependencies 섹션 반환
+        """Return the dependencies section of the configuration file
 
         Returns:
-            list: 의존성 패키지 목록 (open_langgraph.json의 "dependencies" 필드)
+            list: A list of dependency packages (the "dependencies" field in open_langgraph.json)
         """
         if self.config is None:
             return []
@@ -397,18 +397,18 @@ class LangGraphService:
         return []
 
 
-# 전역 서비스 인스턴스 (싱글톤 패턴)
+# Global service instance (singleton pattern)
 _langgraph_service: LangGraphService | None = None
 
 
 def get_langgraph_service() -> LangGraphService:
-    """전역 LangGraph 서비스 인스턴스 반환 (싱글톤)
+    """Return the global LangGraph service instance (singleton)
 
-    이 함수는 애플리케이션 전체에서 동일한 LangGraphService 인스턴스를
-    반환하여 그래프 캐시와 설정을 공유합니다.
+    This function returns the same LangGraphService instance throughout the application,
+    sharing the graph cache and configuration.
 
     Returns:
-        LangGraphService: 싱글톤 서비스 인스턴스
+        LangGraphService: The singleton service instance
     """
     global _langgraph_service
     if _langgraph_service is None:
@@ -417,32 +417,32 @@ def get_langgraph_service() -> LangGraphService:
 
 
 def inject_user_context(user: Any, base_config: dict[str, Any] | None = None) -> dict[str, Any]:
-    """사용자 컨텍스트를 LangGraph 설정에 주입 (멀티테넌트 격리)
+    """Inject user context into LangGraph config (for multi-tenancy isolation)
 
-    이 함수는 사용자 정보를 LangGraph의 configurable 섹션에 주입하여
-    그래프 노드에서 사용자 데이터에 접근할 수 있도록 합니다.
+    This function injects user information into LangGraph's configurable section,
+    allowing graph nodes to access user data.
 
-    주입되는 정보:
-    - user_id: 사용자 고유 식별자 (멀티테넌트 격리용)
-    - user_display_name: 사용자 표시 이름
-    - langgraph_auth_user: 전체 인증 페이로드 (그래프 노드용)
+    Injected information:
+    - user_id: Unique user identifier (for multi-tenancy isolation)
+    - user_display_name: User's display name
+    - langgraph_auth_user: Full authentication payload (for graph nodes)
 
-    사용 사례:
-    - 그래프 노드에서 Runtime[Context]로 사용자 정보 접근
-    - 사용자별 데이터 필터링 및 권한 확인
-    - 로깅 및 추적에 사용자 ID 포함
+    Use cases:
+    - Accessing user info in graph nodes via Runtime[Context]
+    - Filtering data and checking permissions by user
+    - Including user ID in logging and tracing
 
     Args:
-        user: 인증된 사용자 객체 (identity, display_name, to_dict() 포함)
-        base_config (dict | None): 기존 설정 (기본값: {})
+        user: Authenticated user object (with identity, display_name, to_dict())
+        base_config (dict | None): Existing config (default: {})
 
     Returns:
-        dict: 사용자 컨텍스트가 주입된 LangGraph 설정
+        dict: LangGraph config with user context injected
 
-    참고:
-        - 기존 configurable 값은 덮어쓰지 않음 (setdefault 사용)
-        - user가 None이면 사용자 정보 주입을 스킵
-        - to_dict() 실패 시 최소한의 identity만 주입
+    Note:
+        - Does not overwrite existing configurable values (uses setdefault)
+        - Skips user info injection if user is None
+        - Injects minimal identity if to_dict() fails
     """
     config: dict[str, Any] = (base_config or {}).copy()
     configurable = config.get("configurable")
@@ -450,16 +450,16 @@ def inject_user_context(user: Any, base_config: dict[str, Any] | None = None) ->
         configurable = {}
     config["configurable"] = configurable
 
-    # 사용자 관련 데이터 주입 (사용자가 존재하는 경우만)
+    # Inject user-related data (only if user exists)
     if user:
-        # 멀티테넌트 격리를 위한 기본 사용자 식별자
+        # Default user identifier for multi-tenancy isolation
         identity = getattr(user, "identity", None)
         if identity is not None:
             config["configurable"].setdefault("user_id", identity)
         display_name = getattr(user, "display_name", None)
         config["configurable"].setdefault("user_display_name", display_name or identity)
 
-        # 그래프 노드에서 사용할 전체 인증 페이로드
+        # Full authentication payload for use in graph nodes
         if "langgraph_auth_user" not in config["configurable"]:
             try:
                 payload = user.to_dict()  # type: ignore[attr-defined]
@@ -468,7 +468,7 @@ def inject_user_context(user: Any, base_config: dict[str, Any] | None = None) ->
                 else:
                     raise TypeError("User payload is not a dictionary")
             except Exception:
-                # Fallback: to_dict()를 사용할 수 없으면 최소 딕셔너리 사용
+                # Fallback: use minimal dictionary if to_dict() is not available
                 if identity is not None:
                     config["configurable"]["langgraph_auth_user"] = {"identity": identity}
 
@@ -480,26 +480,26 @@ def create_thread_config(
     user: Any,
     additional_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """특정 스레드에 대한 LangGraph 설정 생성 (사용자 컨텍스트 포함)
+    """Create LangGraph config for a specific thread (with user context)
 
-    이 함수는 스레드별 실행 설정을 생성하며 사용자 정보를 자동으로 주입합니다.
-    LangGraph는 이 설정을 사용하여 체크포인터에서 올바른 스레드 상태를 로드합니다.
+    This function creates a per-thread execution config and automatically injects user information.
+    LangGraph uses this config to load the correct thread state from the checkpointer.
 
-    동작 흐름:
-    1. thread_id를 포함한 기본 설정 생성
-    2. additional_config를 기본 설정에 병합
-    3. inject_user_context()로 사용자 정보 주입
-    4. 완성된 설정 반환
+    Workflow:
+    1. Create a base config including thread_id
+    2. Merge additional_config into the base config
+    3. Inject user information with inject_user_context()
+    4. Return the completed config
 
     Args:
-        thread_id (str): 스레드 고유 식별자
-        user: 인증된 사용자 객체
-        additional_config (dict | None): 추가 설정 (기본값: None)
+        thread_id (str): Unique thread identifier
+        user: Authenticated user object
+        additional_config (dict | None): Additional config (default: None)
 
     Returns:
-        dict: thread_id와 사용자 컨텍스트가 포함된 LangGraph 설정
+        dict: LangGraph config including thread_id and user context
 
-    사용 예:
+    Usage example:
         config = create_thread_config("thread_123", user)
         state = await graph.aget_state(config)
     """
@@ -518,60 +518,59 @@ def create_run_config(
     additional_config: dict[str, Any] | None = None,
     checkpoint: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """특정 실행에 대한 LangGraph 설정 생성 (관찰성 콜백 포함)
+    """Create LangGraph config for a specific run (with observability callbacks)
 
-    이 함수는 실행별 설정을 생성하며 다음을 자동으로 추가합니다:
-    - thread_id, run_id: 실행 컨텍스트 식별자
-    - 사용자 컨텍스트: 멀티테넌트 격리 및 권한 관리
-    - 관찰성 콜백: Langfuse 등 추적 시스템 통합
-    - 체크포인트 매개변수: 특정 상태로부터 재개 시 사용
+    This function creates a per-run config and automatically adds:
+    - thread_id, run_id: Execution context identifiers
+    - User context: For multi-tenancy isolation and permission management
+    - Observability callbacks: For integration with tracing systems like Langfuse
+    - Checkpoint parameters: For resuming from a specific state
 
-    동작 원칙:
-        이 함수는 **추가적(additive)**이며, 클라이언트가 제공한 설정을
-        제거하거나 이름을 변경하지 않습니다. 단지 configurable 딕셔너리가
-        존재하는지 확인하고 서버 측 키를 병합하여 그래프 노드에서
-        해당 값들에 의존할 수 있도록 합니다.
+    Design principle:
+        This function is **additive** and does not remove or rename any settings
+        provided by the client. It just ensures the configurable dictionary
+        exists and merges server-side keys so that graph nodes can rely on them.
 
     Args:
-        run_id (str): 실행 고유 식별자
-        thread_id (str): 스레드 고유 식별자
-        user: 인증된 사용자 객체
-        additional_config (dict | None): 클라이언트 제공 추가 설정
-        checkpoint (dict | None): 체크포인트 매개변수 (특정 상태로 재개 시)
+        run_id (str): Unique run identifier
+        thread_id (str): Unique thread identifier
+        user: Authenticated user object
+        additional_config (dict | None): Additional config provided by the client
+        checkpoint (dict | None): Checkpoint parameters (for resuming from a specific state)
 
     Returns:
-        dict: 완전한 LangGraph 실행 설정
+        dict: The complete LangGraph run config
             - configurable: thread_id, run_id, user context, checkpoint params
-            - callbacks: Langfuse 등 관찰성 콜백
-            - metadata: 추적 시스템용 메타데이터
+            - callbacks: Observability callbacks (e.g., for Langfuse)
+            - metadata: Metadata for tracing systems
 
-    참고:
-        - 클라이언트가 이미 설정한 값은 덮어쓰지 않음 (setdefault 사용)
-        - Langfuse 활성화 시 자동으로 콜백과 메타데이터 추가
-        - 체크포인트 매개변수는 configurable에 병합됨
+    Note:
+        - Does not overwrite values already set by the client (uses setdefault)
+        - Automatically adds callbacks and metadata if Langfuse is enabled
+        - Checkpoint parameters are merged into configurable
     """
 
     cfg: dict[str, Any] = deepcopy(additional_config) if additional_config else {}
 
-    # configurable 섹션이 존재하는지 확인
+    # Ensure the configurable section exists
     cfg.setdefault("configurable", {})
 
-    # 서버 제공 필드 병합 (클라이언트가 이미 설정한 경우 덮어쓰지 않음)
+    # Merge server-provided fields (without overwriting if client already set them)
     cfg["configurable"].setdefault("thread_id", thread_id)
     cfg["configurable"].setdefault("run_id", run_id)
 
-    # 다양한 잠재적 소스에서 관찰성 콜백 추가
+    # Add observability callbacks from various potential sources
     tracing_callbacks = get_tracing_callbacks()
     if tracing_callbacks:
         existing_callbacks = cfg.get("callbacks", [])
         if not isinstance(existing_callbacks, list):
-            # 더 견고하게 하려면 여기서 경고를 로깅할 수 있음
+            # Could log a warning here for more robustness
             existing_callbacks = []
 
-        # 기존 콜백과 새 추적 콜백을 결합하여 비파괴적으로 처리
+        # Combine existing callbacks with new tracing callbacks non-destructively
         cfg["callbacks"] = existing_callbacks + tracing_callbacks
 
-        # Langfuse용 메타데이터 추가
+        # Add metadata for Langfuse
         cfg.setdefault("metadata", {})
         cfg["metadata"]["langfuse_session_id"] = thread_id
         if user:
@@ -589,9 +588,9 @@ def create_run_config(
                 f"thread:{thread_id}",
             ]
 
-    # 체크포인트 매개변수가 제공되면 적용
+    # Apply checkpoint parameters if provided
     if checkpoint and isinstance(checkpoint, dict):
         cfg["configurable"].update({k: v for k, v in checkpoint.items() if v is not None})
 
-    # 마지막으로 기존 헬퍼를 통해 사용자 컨텍스트 주입
+    # Finally, inject user context via the existing helper
     return inject_user_context(user, cfg)

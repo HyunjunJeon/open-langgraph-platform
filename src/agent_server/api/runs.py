@@ -61,14 +61,14 @@ router = APIRouter()
 
 logger = logging.getLogger(__name__)
 serializer = GeneralSerializer()
-# TODO: 코드베이스 전체에서 print 문과 bare exception을 구조화된 로깅으로 교체
+# TODO: Replace print statements and bare exceptions with structured logging throughout the codebase.
 
 
-# NOTE: asyncio.Task 핸들은 인메모리 레지스트리에만 보관합니다.
-# 모든 실행 메타데이터/상태는 ORM을 통해 영속화됩니다.
+# NOTE: asyncio.Task handles are kept in an in-memory registry only.
+# All run metadata/state is persisted via the ORM.
 active_runs: dict[str, asyncio.Task] = {}
 
-# 백그라운드 실행에 사용되는 기본 스트림 모드
+# Default stream modes used for background runs
 DEFAULT_STREAM_MODES: list[StreamMode] = ["values"]
 
 
@@ -170,7 +170,7 @@ async def update_thread_metadata(session: AsyncSession, thread_id: str, assistan
     Raises:
         HTTPException: 스레드를 찾을 수 없는 경우 (404)
     """
-    # DB별 JSON concat 연산자를 피하기 위해 read-modify-write 사용
+    # DB-specific JSON concat operators are avoided by using a read-modify-write approach
     thread = await session.scalar(select(ThreadORM).where(ThreadORM.thread_id == thread_id))
     if not thread:
         raise HTTPException(404, f"Thread '{thread_id}' not found for metadata update")
@@ -225,9 +225,9 @@ async def create_run(
         - 스트리밍이 필요한 경우 create_and_stream_run을 사용하세요
     """
 
-    # resume 명령 요구사항을 조기에 검증
+    # Validate resume command requirements early
     if request.command and request.command.get("resume") is not None:
-        # 스레드가 존재하고 중단된 상태인지 확인
+        # Check if the thread exists and is in an interrupted state
         thread_stmt = select(ThreadORM).where(ThreadORM.thread_id == thread_id)
         thread = await session.scalar(thread_stmt)
         if not thread:
@@ -237,14 +237,14 @@ async def create_run(
 
     run_id = str(uuid4())
 
-    # LangGraph 서비스 가져오기
+    # Get LangGraph service
     langgraph_service = get_langgraph_service()
     print(f"create_run: scheduling background task run_id={run_id} thread_id={thread_id} user={user.identity}")
     print(f"[create_run] scheduling background task run_id={run_id} thread_id={thread_id} user={user.identity}")
 
-    # 어시스턴트 존재 여부를 검증하고 graph_id를 가져옵니다.
-    # assistant UUID 대신 graph_id가 제공된 경우, 결정론적으로 매핑하고
-    # 시작 시 생성된 기본 어시스턴트로 폴백합니다.
+    # Validate assistant existence and get graph_id.
+    # If a graph_id is provided instead of an assistant UUID, deterministically map it
+    # and fall back to the default assistant created at startup.
     requested_id = str(request.assistant_id)
     available_graphs = langgraph_service.list_graphs()
     resolved_assistant_id = resolve_assistant_id(requested_id, available_graphs)
@@ -259,19 +259,19 @@ async def create_run(
     if not assistant:
         raise HTTPException(404, f"Assistant '{request.assistant_id}' not found")
 
-    # 어시스턴트의 그래프가 존재하는지 검증
+    # Validate that the assistant's graph exists
     available_graphs = langgraph_service.list_graphs()
     if assistant.graph_id not in available_graphs:
         raise HTTPException(404, f"Graph '{assistant.graph_id}' not found for assistant")
 
-    # 스레드를 busy로 표시하고 어시스턴트/그래프 정보로 메타데이터 업데이트
+    # Mark thread as busy and update metadata with assistant/graph info
     await set_thread_status(session, thread_id, "busy")
     await update_thread_metadata(session, thread_id, assistant.assistant_id, assistant.graph_id)
 
-    # core.orm의 ORM 모델을 통해 Run 레코드 영속화 (Run 테이블)
+    # Persist Run record via ORM model from core.orm (Run table)
     now = datetime.now(UTC)
     run_orm = RunORM(
-        run_id=run_id,  # 명시적으로 설정 (생략 시 DB가 기본값 생성)
+        run_id=run_id,  # Set explicitly (DB would generate default if omitted)
         thread_id=thread_id,
         assistant_id=resolved_assistant_id,
         status="pending",
@@ -287,7 +287,7 @@ async def create_run(
     session.add(run_orm)
     await session.commit()
 
-    # ORM -> Pydantic 응답 객체 구성
+    # Configure ORM -> Pydantic response object
     run = Run(
         run_id=run_id,
         thread_id=thread_id,
@@ -303,8 +303,8 @@ async def create_run(
         error_message=None,
     )
 
-    # 비동기로 실행 시작
-    # 트랜잭션 충돌을 피하기 위해 session을 전달하지 않음
+    # Start execution asynchronously
+    # Do not pass session to avoid transaction conflicts
     stream_modes = _normalize_stream_modes(request.stream_mode)
 
     subgraphs_flag = bool(request.stream_subgraphs)
@@ -319,7 +319,7 @@ async def create_run(
             config,
             context,
             stream_modes,
-            None,  # 충돌 방지를 위해 session 전달 안 함
+            None,  # Do not pass session to avoid conflicts
             request.checkpoint,
             request.command,
             request.interrupt_before,
@@ -374,9 +374,9 @@ async def create_and_stream_run(
         - on_disconnect=cancel 옵션으로 클라이언트 연결 해제 시 실행 취소 가능
     """
 
-    # resume 명령 요구사항을 조기에 검증
+    # Validate resume command requirements early
     if request.command and request.command.get("resume") is not None:
-        # 스레드가 존재하고 중단된 상태인지 확인
+        # Check if the thread exists and is in an interrupted state
         thread_stmt = select(ThreadORM).where(ThreadORM.thread_id == thread_id)
         thread = await session.scalar(thread_stmt)
         if not thread:
@@ -386,14 +386,14 @@ async def create_and_stream_run(
 
     run_id = str(uuid4())
 
-    # LangGraph 서비스 가져오기
+    # Get LangGraph service
     langgraph_service = get_langgraph_service()
     print(
         f"[create_and_stream_run] scheduling background task run_id={run_id} thread_id={thread_id} user={user.identity}"
     )
 
-    # 어시스턴트 존재 여부를 검증하고 graph_id를 가져옵니다.
-    # graph_id를 전달하면 결정론적 어시스턴트 ID로 매핑합니다.
+    # Validate assistant existence and get graph_id.
+    # If a graph_id is passed, map it to a deterministic assistant ID.
     requested_id = str(request.assistant_id)
     available_graphs = langgraph_service.list_graphs()
 
@@ -409,16 +409,16 @@ async def create_and_stream_run(
     if not assistant:
         raise HTTPException(404, f"Assistant '{request.assistant_id}' not found")
 
-    # 어시스턴트의 그래프가 존재하는지 검증
+    # Validate that the assistant's graph exists
     available_graphs = langgraph_service.list_graphs()
     if assistant.graph_id not in available_graphs:
         raise HTTPException(404, f"Graph '{assistant.graph_id}' not found for assistant")
 
-    # 스레드를 busy로 표시하고 어시스턴트/그래프 정보로 메타데이터 업데이트
+    # Mark thread as busy and update metadata with assistant/graph info
     await set_thread_status(session, thread_id, "busy")
     await update_thread_metadata(session, thread_id, assistant.assistant_id, assistant.graph_id)
 
-    # Run 레코드 영속화
+    # Persist Run record
     now = datetime.now(UTC)
     run_orm = RunORM(
         run_id=run_id,
@@ -437,7 +437,7 @@ async def create_and_stream_run(
     session.add(run_orm)
     await session.commit()
 
-    # 스트림 컨텍스트용 응답 모델 구성
+    # Configure response model for stream context
     run = Run(
         run_id=run_id,
         thread_id=thread_id,
@@ -453,8 +453,8 @@ async def create_and_stream_run(
         error_message=None,
     )
 
-    # 브로커를 채울 백그라운드 실행 시작
-    # 트랜잭션 충돌을 피하기 위해 session을 전달하지 않음
+    # Start background execution to populate the broker
+    # Do not pass session to avoid transaction conflicts
     stream_modes = _normalize_stream_modes(request.stream_mode)
     subgraphs_flag = bool(request.stream_subgraphs)
 
@@ -468,7 +468,7 @@ async def create_and_stream_run(
             config,
             context,
             stream_modes,
-            None,  # 충돌 방지를 위해 session 전달 안 함
+            None,  # Do not pass session to avoid conflicts
             request.checkpoint,
             request.command,
             request.interrupt_before,
@@ -480,12 +480,12 @@ async def create_and_stream_run(
     print(f"[create_and_stream_run] background task created task_id={id(task)} for run_id={run_id}")
     active_runs[run_id] = task
 
-    # 요청된 스트림 모드 추출
+    # Extract requested stream mode
     stream_mode = request.stream_mode
     if not stream_mode and config and "stream_mode" in config:
         stream_mode = config["stream_mode"]
 
-    # 브로커에서 즉시 스트리밍 (초기 이벤트 재생 포함)
+    # Stream immediately from the broker (including initial event replay)
     cancel_on_disconnect = (request.on_disconnect or "continue").lower() == "cancel"
 
     return StreamingResponse(
@@ -537,11 +537,11 @@ async def get_run(
     if not run_orm:
         raise HTTPException(404, f"Run '{run_id}' not found")
 
-    # 백그라운드 작업이 업데이트한 최신 데이터를 가져오기 위해 refresh
+    # Refresh to get the latest data updated by the background task
     await session.refresh(run_orm)
 
     print(f"[get_run] found run status={run_orm.status} user={user.identity} thread_id={thread_id} run_id={run_id}")
-    # Pydantic으로 변환
+    # Convert to Pydantic
     return Run.model_validate({c.name: getattr(run_orm, c.name) for c in run_orm.__table__.columns})
 
 
@@ -637,7 +637,7 @@ async def update_run(
     if not run_orm:
         raise HTTPException(404, f"Run '{run_id}' not found")
 
-    # 중단/취소 처리
+    # Handle interruption/cancellation
 
     if request.status == "cancelled":
         print(f"[update_run] cancelling run_id={run_id} user={user.identity} thread_id={thread_id}")
@@ -660,10 +660,10 @@ async def update_run(
         await session.commit()
         print(f"[update_run] commit done (interrupted) run_id={run_id}")
 
-    # 최종 실행 상태 반환
+    # Return the final run state
     run_orm = await session.scalar(select(RunORM).where(RunORM.run_id == run_id))
     if run_orm:
-        # 우리가 방금 업데이트한 최신 데이터를 가져오기 위해 refresh
+        # Refresh to get the latest data we just updated
         await session.refresh(run_orm)
     return Run.model_validate({c.name: getattr(run_orm, c.name) for c in run_orm.__table__.columns})  # type: ignore
 
@@ -702,7 +702,7 @@ async def join_run(
         - 타임아웃(30초)이 발생해도 에러가 아닙니다. DB에서 현재 상태를 반환합니다
         - 작업이 취소되어도 DB에서 출력을 조회합니다
     """
-    # 실행을 가져와서 존재 여부 확인
+    # Get the run and check for existence
     run_orm = await session.scalar(
         select(RunORM).where(
             RunORM.run_id == str(run_id),
@@ -713,34 +713,34 @@ async def join_run(
     if not run_orm:
         raise HTTPException(404, f"Run '{run_id}' not found")
 
-    # 이미 완료된 경우 즉시 출력 반환
+    # If already completed, return output immediately
     if run_orm.status in ["completed", "failed", "cancelled"]:
-        # 최신 데이터를 가져오기 위해 refresh
+        # Refresh to get the latest data
         await session.refresh(run_orm)
         output = getattr(run_orm, "output", None) or {}
         return output
 
-    # 백그라운드 작업이 완료될 때까지 대기
+    # Wait for the background task to complete
     task = active_runs.get(run_id)
     if task:
         try:
             await asyncio.wait_for(task, timeout=30.0)
         except TimeoutError:
-            # 작업이 너무 오래 걸리지만 괜찮습니다 - DB 상태를 확인할 것입니다
+            # The task is taking too long, but that's okay - we'll check the DB status
             pass
         except asyncio.CancelledError:
-            # 작업이 취소되었지만 이것도 괜찮습니다
+            # The task was cancelled, but that's okay too
             pass
 
-    # 데이터베이스에서 최종 출력 반환
+    # Return the final output from the database
     run_orm = await session.scalar(select(RunORM).where(RunORM.run_id == run_id))
     if run_orm:
-        await session.refresh(run_orm)  # DB에서 최신 데이터를 가져오기 위해 refresh
+        await session.refresh(run_orm)  # Refresh to get the latest data from the DB
     output = getattr(run_orm, "output", None) or {}
     return output
 
 
-# TODO: 구현이 올바르지 않아 보이므로 이 메서드가 실제로 필요한지 확인 필요
+# TODO: This method seems to have an incorrect implementation, need to check if it's actually needed
 @router.get("/threads/{thread_id}/runs/{run_id}/stream")
 async def stream_run(
     thread_id: str,
@@ -791,7 +791,7 @@ async def stream_run(
         raise HTTPException(404, f"Run '{run_id}' not found")
 
     print(f"[stream_run] status={run_orm.status} user={user.identity} thread_id={thread_id} run_id={run_id}")
-    # 이미 종료된 경우 최종 종료 이벤트 전송
+    # If already terminated, send a final end event
     if run_orm.status in ["completed", "failed", "cancelled"]:
 
         async def generate_final() -> AsyncIterator[str]:
@@ -808,9 +808,9 @@ async def stream_run(
             },
         )
 
-    # 활성 또는 대기 중인 실행을 브로커를 통해 스트리밍
+    # Stream active or pending runs via the broker
 
-    # 스트리밍 컨텍스트용 경량 Pydantic Run 객체 구성 (ID는 이미 문자열)
+    # Configure a lightweight Pydantic Run object for streaming context (ID is already a string)
     run_model = Run.model_validate({c.name: getattr(run_orm, c.name) for c in run_orm.__table__.columns})
 
     return StreamingResponse(
@@ -883,7 +883,7 @@ async def cancel_run_endpoint(
     if action == "interrupt":
         print(f"[cancel_run] interrupt run_id={run_id} user={user.identity} thread_id={thread_id}")
         await streaming_service.interrupt_run(run_id)
-        # 상태를 interrupted로 영속화
+        # Persist status as interrupted
         await session.execute(
             update(RunORM)
             .where(RunORM.run_id == str(run_id))
@@ -893,20 +893,20 @@ async def cancel_run_endpoint(
     else:
         print(f"[cancel_run] cancel run_id={run_id} user={user.identity} thread_id={thread_id}")
         await streaming_service.cancel_run(run_id)
-        # 상태를 cancelled로 영속화
+        # Persist status as cancelled
         await session.execute(
             update(RunORM).where(RunORM.run_id == str(run_id)).values(status="cancelled", updated_at=datetime.now(UTC))
         )
         await session.commit()
 
-    # 선택적으로 백그라운드 작업 대기
+    # Optionally wait for the background task
     if wait:
         task = active_runs.get(run_id)
         if task:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
 
-    # 업데이트된 Run을 다시 로드하여 반환 (여기서 삭제하지 않음; 삭제는 별도 엔드포인트)
+    # Reload and return the updated Run (don't delete here; deletion is a separate endpoint)
     run_orm = await session.scalar(
         select(RunORM).where(
             RunORM.run_id == run_id,
@@ -941,12 +941,12 @@ def _should_skip_event(raw_event: Any) -> bool:
         - Langsmith 내부 추적용 이벤트를 클라이언트에게 전송하지 않기 위함
     """
     try:
-        # 이벤트가 'langsmith:nostream' 태그를 포함한 메타데이터를 가지고 있는지 확인
+        # Check if the event has metadata with the 'langsmith:nostream' tag
         if isinstance(raw_event, tuple) and len(raw_event) >= 2:
-            # 튜플 이벤트의 경우 세 번째 요소(메타데이터 튜플) 확인
+            # For tuple events, check the third element (metadata tuple)
             metadata_tuple = raw_event[len(raw_event) - 1]
             if isinstance(metadata_tuple, tuple) and len(metadata_tuple) >= 2:
-                # 메타데이터 튜플의 두 번째 항목 가져오기
+                # Get the second item of the metadata tuple
                 metadata = metadata_tuple[1]
                 if isinstance(metadata, dict) and "tags" in metadata:
                     tags = metadata["tags"]
@@ -954,7 +954,7 @@ def _should_skip_event(raw_event: Any) -> bool:
                         return True
         return False
     except Exception:
-        # 이벤트 구조를 파싱할 수 없으면 건너뛰지 않음
+        # If the event structure cannot be parsed, do not skip
         return False
 
 

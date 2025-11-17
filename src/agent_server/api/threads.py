@@ -1,43 +1,43 @@
-"""Agent Protocol 스레드 엔드포인트
+"""Agent Protocol thread endpoints.
 
-이 모듈은 LangGraph 기반 대화 스레드의 생성, 조회, 수정, 삭제(CRUD) 및
-상태 관리 기능을 제공하는 FastAPI 라우터입니다.
+This module is a FastAPI router that provides create, read, update, delete (CRUD)
+and state management functionalities for LangGraph-based conversation threads.
 
-주요 기능:
-• 스레드 CRUD 작업 (생성, 조회, 업데이트, 삭제)
-• 체크포인트 기반 상태 조회 (특정 시점의 대화 상태)
-• 스레드 히스토리 조회 (과거 체크포인트 목록)
-• 메타데이터 기반 스레드 검색
-• 멀티테넌트 사용자 격리 (user_id 기반)
+Key features:
+- Thread CRUD operations (create, read, update, delete).
+- Checkpoint-based state retrieval (conversation state at a specific point in time).
+- Thread history retrieval (list of past checkpoints).
+- Metadata-based thread search.
+- Multi-tenant user isolation (based on user_id).
 
-엔드포인트 목록:
-• POST   /threads - 새 스레드 생성
-• GET    /threads - 사용자의 스레드 목록 조회
-• GET    /threads/{thread_id} - 특정 스레드 조회
-• DELETE /threads/{thread_id} - 스레드 삭제 (활성 실행 자동 취소)
-• POST   /threads/search - 메타데이터 기반 검색
-• GET    /threads/{thread_id}/state/{checkpoint_id} - 체크포인트 상태 조회
-• POST   /threads/{thread_id}/state/checkpoint - 체크포인트 상태 조회 (SDK 호환)
-• GET    /threads/{thread_id}/history - 스레드 히스토리 조회
-• POST   /threads/{thread_id}/history - 스레드 히스토리 조회 (SDK 호환)
+Endpoint list:
+- POST   /threads - Create a new thread.
+- GET    /threads - Retrieve a user's list of threads.
+- GET    /threads/{thread_id} - Retrieve a specific thread.
+- DELETE /threads/{thread_id} - Delete a thread (automatically cancels active runs).
+- POST   /threads/search - Search based on metadata.
+- GET    /threads/{thread_id}/state/{checkpoint_id} - Retrieve checkpoint state.
+- POST   /threads/{thread_id}/state/checkpoint - Retrieve checkpoint state (SDK compatible).
+- GET    /threads/{thread_id}/history - Retrieve thread history.
+- POST   /threads/{thread_id}/history - Retrieve thread history (SDK compatible).
 
-아키텍처 패턴:
-- LangGraph 체크포인터를 통한 상태 영속화
-- SQLAlchemy ORM으로 스레드 메타데이터 관리
-- ThreadStateService를 통한 LangGraph StateSnapshot 변환
-- 인증된 사용자별 자동 격리 (get_current_user 의존성)
+Architectural patterns:
+- State persistence through LangGraph checkpointer.
+- Thread metadata management with SQLAlchemy ORM.
+- LangGraph StateSnapshot conversion via ThreadStateService.
+- Automatic isolation per authenticated user (get_current_user dependency).
 
-사용 예:
-    # 클라이언트에서 스레드 생성
+Usage example:
+    # Create a thread from the client
     POST /threads
     {
-        "metadata": {"user_name": "홍길동"}
+        "metadata": {"user_name": "John Doe"}
     }
 
-    # 스레드 히스토리 조회 (최근 10개 체크포인트)
+    # Retrieve thread history (last 10 checkpoints)
     GET /threads/{thread_id}/history?limit=10
 
-    # 특정 체크포인트 시점의 상태 조회
+    # Retrieve state at a specific checkpoint
     GET /threads/{thread_id}/state/{checkpoint_id}
 """
 
@@ -85,7 +85,7 @@ logger = logging.getLogger(__name__)
 thread_state_service = ThreadStateService()
 
 
-# 인메모리 저장소 제거됨; ORM을 통한 데이터베이스 사용
+# In-memory storage has been removed; using the database via ORM
 
 
 @router.post("/threads", response_model=Thread)
@@ -94,44 +94,44 @@ async def create_thread(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Thread:
-    """새 대화 스레드 생성
+    """Create a new conversation thread.
 
-    사용자별로 격리된 새 스레드를 생성하고 메타데이터를 초기화합니다.
-    스레드는 향후 실행(Run)이 연결될 때까지 'idle' 상태로 유지됩니다.
+    Creates a new, user-isolated thread and initializes its metadata.
+    The thread remains in an 'idle' state until a Run is associated with it.
 
-    동작 흐름:
-    1. 새 UUID 생성 (thread_id)
-    2. 메타데이터에 소유자(owner) 및 기본 필드 추가
-    3. ThreadORM 레코드를 데이터베이스에 저장
-    4. 테스트 호환성을 위한 타입 강제 변환(coercion) 수행
-    5. Pydantic Thread 모델로 응답 반환
+    Workflow:
+    1. Generate a new UUID (thread_id).
+    2. Add owner and default fields to the metadata.
+    3. Save the ThreadORM record to the database.
+    4. Perform type coercion for test compatibility.
+    5. Return the response as a Pydantic Thread model.
 
     Args:
-        request (ThreadCreate): 스레드 생성 요청 (선택적 메타데이터 포함)
-        user (User): 인증된 사용자 (자동 주입)
-        session (AsyncSession): 비동기 DB 세션 (자동 주입)
+        request (ThreadCreate): The thread creation request, with optional metadata.
+        user (User): The authenticated user (auto-injected).
+        session (AsyncSession): The async DB session (auto-injected).
 
     Returns:
-        Thread: 생성된 스레드 (thread_id, status, metadata, user_id, created_at)
+        Thread: The created thread (thread_id, status, metadata, user_id, created_at).
 
     Raises:
-        HTTPException: 데이터베이스 오류 발생 시
+        HTTPException: If a database error occurs.
 
-    참고:
-        - 스레드는 처음 실행이 생성될 때 assistant_id와 graph_id가 설정됩니다
-        - 메타데이터는 JSONB 필드에 저장되어 유연한 쿼리를 지원합니다
+    Note:
+        - The thread's assistant_id and graph_id are set when the first run is created.
+        - Metadata is stored in a JSONB field to support flexible queries.
     """
 
     thread_id = str(uuid4())
 
-    # 필수 필드를 포함한 메타데이터 구성
+    # Configure metadata with required fields
     metadata = request.metadata or {}
     metadata.update(
         {
             "owner": user.identity,
-            "assistant_id": None,  # 첫 실행 생성 시 설정됨
-            "graph_id": None,  # 첫 실행 생성 시 설정됨
-            "thread_name": "",  # 사용자가 나중에 업데이트 가능
+            "assistant_id": None,  # Set when the first run is created
+            "graph_id": None,  # Set when the first run is created
+            "thread_name": "",  # Can be updated by the user later
         }
     )
 
@@ -141,20 +141,20 @@ async def create_thread(
         metadata_json=metadata,
         user_id=user.identity,
     )
-    # SQLAlchemy AsyncSession.add는 동기 메서드이므로 await 불필요
+    # SQLAlchemy AsyncSession.add is a sync method, so no await is needed
     session.add(thread_orm)
     await session.commit()
-    # 테스트 환경에서 session.refresh가 no-op일 수 있으므로 안전하게 처리
+    # Handle safely as session.refresh might be a no-op in test environments
     with contextlib.suppress(Exception):
         await session.refresh(thread_orm)
 
-    # TODO: initial_state가 제공된 경우 LangGraph 체크포인트 초기화
+    # TODO: Initialize LangGraph checkpoint if initial_state is provided
 
-    # Pydantic Thread 유효성 검사를 위한 안전한 딕셔너리 구성 (MagicMock 대응)
+    # Configure a safe dictionary for Pydantic Thread validation (to handle MagicMock)
     def _coerce_str(val: Any, default: str) -> str:
         try:
             s = str(val)
-            # MagicMock 문자열에는 보통 "MagicMock"이 포함되므로 기본값으로 대체
+            # MagicMock strings usually contain "MagicMock", so replace with default
             return default if "MagicMock" in s else s
         except Exception:
             return default
@@ -162,7 +162,7 @@ async def create_thread(
     def _coerce_dict(val: Any, default: dict[str, Any]) -> dict[str, Any]:
         if isinstance(val, dict):
             return val
-        # 일부 mock이 매핑인 척 할 수 있으므로 안전하게 변환 시도
+        # Some mocks might pretend to be mappings, so try to convert safely
         with contextlib.suppress(Exception):
             if hasattr(val, "items"):
                 return dict(val.items())  # type: ignore[attr-defined]
@@ -191,23 +191,23 @@ async def create_thread(
 async def list_threads(
     user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)
 ) -> ThreadList:
-    """사용자의 스레드 목록 조회
+    """List all threads for a user.
 
-    인증된 사용자가 소유한 모든 스레드를 반환합니다.
-    멀티테넌트 환경에서 자동으로 사용자별 격리를 수행합니다.
+    Returns all threads owned by the authenticated user.
+    Automatically handles user-specific isolation in a multi-tenant environment.
 
     Args:
-        user (User): 인증된 사용자 (자동 주입)
-        session (AsyncSession): 비동기 DB 세션 (자동 주입)
+        user (User): The authenticated user (auto-injected).
+        session (AsyncSession): The async DB session (auto-injected).
 
     Returns:
-        ThreadList: 스레드 목록과 총 개수
-            - threads: Thread 객체 배열
-            - total: 총 스레드 개수
+        ThreadList: A list of threads and the total count.
+            - threads: An array of Thread objects.
+            - total: The total number of threads.
 
-    참고:
-        - 페이지네이션은 아직 지원하지 않으며 모든 스레드를 반환합니다
-        - 향후 limit/offset 파라미터 추가 예정
+    Note:
+        - Pagination is not yet supported; all threads are returned.
+        - `limit`/`offset` parameters will be added in the future.
     """
     stmt = select(ThreadORM).where(ThreadORM.user_id == user.identity)
     result = await session.scalars(stmt)
@@ -230,21 +230,21 @@ async def get_thread(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Thread:
-    """ID로 특정 스레드 조회
+    """Retrieve a specific thread by ID.
 
-    인증된 사용자가 소유한 스레드만 조회할 수 있습니다.
-    다른 사용자의 스레드 접근 시 404 오류를 반환합니다.
+    Only allows retrieval of threads owned by the authenticated user.
+    Returns a 404 error if another user's thread is accessed.
 
     Args:
-        thread_id (str): 조회할 스레드 고유 식별자
-        user (User): 인증된 사용자 (자동 주입)
-        session (AsyncSession): 비동기 DB 세션 (자동 주입)
+        thread_id (str): The unique identifier of the thread to retrieve.
+        user (User): The authenticated user (auto-injected).
+        session (AsyncSession): The async DB session (auto-injected).
 
     Returns:
-        Thread: 스레드 상세 정보 (메타데이터 포함)
+        Thread: The detailed thread information, including metadata.
 
     Raises:
-        HTTPException 404: 스레드를 찾을 수 없거나 권한이 없는 경우
+        HTTPException 404: If the thread is not found or the user does not have permission.
     """
     stmt = select(ThreadORM).where(ThreadORM.thread_id == thread_id, ThreadORM.user_id == user.identity)
     thread = await session.scalar(stmt)
@@ -267,56 +267,56 @@ async def get_thread_state_at_checkpoint(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> ThreadState:
-    """특정 체크포인트 시점의 스레드 상태 조회
+    """Retrieve the state of a thread at a specific checkpoint.
 
-    LangGraph 체크포인터를 통해 과거 특정 시점의 대화 상태를 조회합니다.
-    시간 여행(time travel) 디버깅이나 상태 검사에 유용합니다.
+    Retrieves the conversation state at a specific point in the past via the LangGraph checkpointer.
+    Useful for time-travel debugging or state inspection.
 
-    동작 흐름:
-    1. 스레드 존재 및 소유권 확인
-    2. 스레드 메타데이터에서 graph_id 추출
-    3. LangGraph 서비스에서 컴파일된 그래프 로드
-    4. 사용자 컨텍스트 및 checkpoint_id를 포함한 설정 생성
-    5. agent.aget_state()로 체크포인트 상태 조회
-    6. ThreadState 형식으로 변환하여 반환
+    Workflow:
+    1. Verify thread existence and ownership.
+    2. Extract the graph_id from the thread's metadata.
+    3. Load the compiled graph from the LangGraph service.
+    4. Create a configuration including the user context and checkpoint_id.
+    5. Retrieve the checkpoint state using `agent.aget_state()`.
+    6. Convert the state to the `ThreadState` format and return it.
 
     Args:
-        thread_id (str): 스레드 고유 식별자
-        checkpoint_id (str): 조회할 체크포인트 ID
-        subgraphs (bool | None): 서브그래프 상태 포함 여부 (기본: False)
-        user (User): 인증된 사용자 (자동 주입)
-        session (AsyncSession): 비동기 DB 세션 (자동 주입)
+        thread_id (str): The unique identifier of the thread.
+        checkpoint_id (str): The ID of the checkpoint to retrieve.
+        subgraphs (bool | None): Whether to include states from subgraphs (default: False).
+        user (User): The authenticated user (auto-injected).
+        session (AsyncSession): The async DB session (auto-injected).
 
     Returns:
-        ThreadState: 체크포인트 시점의 상태 정보
-            - values: 상태 값 (그래프의 State 스키마에 따름)
-            - next: 다음 실행 예정 노드 목록
-            - metadata: 체크포인트 메타데이터
-            - created_at: 생성 시각
-            - parent_config: 부모 체크포인트 설정
+        ThreadState: The state information at the checkpoint.
+            - values: The state values (following the graph's State schema).
+            - next: The list of nodes scheduled for the next execution.
+            - metadata: The checkpoint metadata.
+            - created_at: The creation timestamp.
+            - parent_config: The parent checkpoint configuration.
 
     Raises:
-        HTTPException 404: 스레드/그래프/체크포인트를 찾을 수 없는 경우
-        HTTPException 500: 그래프 로드 또는 상태 조회 실패
+        HTTPException 404: If the thread, graph, or checkpoint is not found.
+        HTTPException 500: If loading the graph or retrieving the state fails.
 
-    참고:
-        - subgraphs=True 시 서브그래프의 모든 상태도 함께 반환됩니다
-        - 체크포인트는 LangGraph가 각 노드 실행 후 자동으로 생성합니다
+    Note:
+        - If `subgraphs=True`, all states from subgraphs will also be returned.
+        - Checkpoints are automatically created by LangGraph after each node execution.
     """
     try:
-        # 스레드 존재 여부 및 사용자 소유권 확인
+        # Verify thread existence and user ownership
         stmt = select(ThreadORM).where(ThreadORM.thread_id == thread_id, ThreadORM.user_id == user.identity)
         thread = await session.scalar(stmt)
         if not thread:
             raise HTTPException(404, f"Thread '{thread_id}' not found")
 
-        # 스레드 메타데이터에서 graph_id 추출
+        # Extract graph_id from thread metadata
         thread_metadata = thread.metadata_json or {}
         graph_id = thread_metadata.get("graph_id")
         if not graph_id:
             raise HTTPException(404, f"Thread '{thread_id}' has no associated graph")
 
-        # 컴파일된 그래프 로드
+        # Load the compiled graph
         from ..services.langgraph_service import (
             create_thread_config,
             get_langgraph_service,
@@ -329,12 +329,12 @@ async def get_thread_state_at_checkpoint(
             logger.exception("Failed to load graph '%s' for checkpoint retrieval", graph_id)
             raise HTTPException(500, f"Failed to load graph '{graph_id}': {str(e)}") from e
 
-        # 사용자 컨텍스트와 thread_id를 포함한 설정 구성
+        # Configure settings including user context and thread_id
         config_dict: dict[str, Any] = create_thread_config(thread_id, user, {})
         config_dict.setdefault("configurable", {})
         config_dict["configurable"]["checkpoint_id"] = checkpoint_id
 
-        # 체크포인트 시점의 상태 조회
+        # Retrieve the state at the checkpoint
         try:
             state_snapshot = await agent.aget_state(
                 cast("RunnableConfig", config_dict),
@@ -357,7 +357,7 @@ async def get_thread_state_at_checkpoint(
                 f"No state found at checkpoint '{checkpoint_id}' for thread '{thread_id}'",
             )
 
-        # StateSnapshot을 ThreadState로 변환 (서비스 활용)
+        # Convert StateSnapshot to ThreadState (using the service)
         thread_checkpoint = thread_state_service.convert_snapshot_to_thread_state(
             state_snapshot,
             thread_id,
@@ -379,27 +379,27 @@ async def get_thread_state_at_checkpoint_post(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> ThreadState:
-    """특정 체크포인트 시점의 스레드 상태 조회 (POST 메서드 - SDK 호환용)
+    """Retrieve the state of a thread at a specific checkpoint (POST method - for SDK compatibility).
 
-    GET 메서드와 동일한 기능을 POST 방식으로 제공합니다.
-    LangGraph SDK 클라이언트 호환성을 위한 엔드포인트입니다.
+    Provides the same functionality as the GET method but via POST.
+    This endpoint is for compatibility with the LangGraph SDK client.
 
     Args:
-        thread_id (str): 스레드 고유 식별자
-        request (ThreadCheckpointPostRequest): 체크포인트 요청 정보
-            - checkpoint: 조회할 체크포인트 정보 (checkpoint_id 포함)
-            - subgraphs: 서브그래프 상태 포함 여부
-        user (User): 인증된 사용자 (자동 주입)
-        session (AsyncSession): 비동기 DB 세션 (자동 주입)
+        thread_id (str): The unique identifier of the thread.
+        request (ThreadCheckpointPostRequest): The checkpoint request information.
+            - checkpoint: The checkpoint information to retrieve, including checkpoint_id.
+            - subgraphs: Whether to include states from subgraphs.
+        user (User): The authenticated user (auto-injected).
+        session (AsyncSession): The async DB session (auto-injected).
 
     Returns:
-        ThreadState: 체크포인트 시점의 상태 정보
+        ThreadState: The state information at the checkpoint.
 
-    참고:
-        - 내부적으로 GET 엔드포인트 로직을 재사용합니다
-        - POST body로 복잡한 체크포인트 필터를 전달할 수 있습니다
+    Note:
+        - Internally reuses the GET endpoint logic.
+        - Allows for passing complex checkpoint filters via the POST body.
     """
-    # GET 로직 재사용 (함수 직접 호출)
+    # Reuse GET logic (by calling the function directly)
     checkpoint = request.checkpoint
     if checkpoint.checkpoint_id is None:
         raise HTTPException(400, "checkpoint_id is required")
@@ -418,57 +418,57 @@ async def get_thread_history_post(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[ThreadState]:
-    """스레드 체크포인트 히스토리 조회 (POST 메서드 - SDK 호환용)
+    """Retrieve the checkpoint history of a thread (POST method - for SDK compatibility).
 
-    스레드의 과거 체크포인트 목록을 페이지네이션과 필터링을 지원하여 조회합니다.
-    대화 기록 재생, 디버깅, 상태 분석에 유용합니다.
+    Retrieves a list of past checkpoints for a thread, with support for pagination and filtering.
+    Useful for replaying conversation history, debugging, and state analysis.
 
-    동작 흐름:
-    1. 입력 파라미터 유효성 검증 (limit, before, metadata 등)
-    2. 스레드 존재 및 소유권 확인
-    3. 스레드 메타데이터에서 graph_id 추출
-    4. LangGraph 서비스에서 컴파일된 그래프 로드
-    5. 사용자 컨텍스트와 필터 옵션을 포함한 설정 구성
-    6. agent.aget_state_history()로 체크포인트 목록 조회
-    7. ThreadState 목록으로 변환하여 반환
+    Workflow:
+    1. Validate input parameters (limit, before, metadata, etc.).
+    2. Verify thread existence and ownership.
+    3. Extract the graph_id from the thread's metadata.
+    4. Load the compiled graph from the LangGraph service.
+    5. Configure settings including user context and filter options.
+    6. Retrieve the list of checkpoints using `agent.aget_state_history()`.
+    7. Convert the list to `ThreadState` format and return it.
 
     Args:
-        thread_id (str): 스레드 고유 식별자
-        request (ThreadHistoryRequest): 히스토리 조회 요청
-            - limit (int): 반환할 최대 개수 (1-1000, 기본: 10)
-            - before (str | None): 이 체크포인트 이전의 히스토리만 반환
-            - metadata (dict | None): 메타데이터 필터 조건
-            - checkpoint (dict | None): 체크포인트 필터 설정
-            - subgraphs (bool): 서브그래프 상태 포함 여부 (기본: False)
-            - checkpoint_ns (str | None): 체크포인트 네임스페이스
-        user (User): 인증된 사용자 (자동 주입)
-        session (AsyncSession): 비동기 DB 세션 (자동 주입)
+        thread_id (str): The unique identifier of the thread.
+        request (ThreadHistoryRequest): The history retrieval request.
+            - limit (int): The maximum number of items to return (1-1000, default: 10).
+            - before (str | None): Return only history before this checkpoint.
+            - metadata (dict | None): Metadata filter conditions.
+            - checkpoint (dict | None): Checkpoint filter settings.
+            - subgraphs (bool): Whether to include states from subgraphs (default: False).
+            - checkpoint_ns (str | None): The checkpoint namespace.
+        user (User): The authenticated user (auto-injected).
+        session (AsyncSession): The async DB session (auto-injected).
 
     Returns:
-        list[ThreadState]: 체크포인트 목록 (최신순)
-            빈 리스트: graph_id가 설정되지 않았거나 히스토리가 없는 경우
+        list[ThreadState]: A list of checkpoints (most recent first).
+            An empty list is returned if `graph_id` is not set or there is no history.
 
     Raises:
-        HTTPException 404: 스레드를 찾을 수 없는 경우
-        HTTPException 422: 유효하지 않은 파라미터
-        HTTPException 500: 그래프 로드 또는 히스토리 조회 실패
+        HTTPException 404: If the thread is not found.
+        HTTPException 422: If parameters are invalid.
+        HTTPException 500: If loading the graph or retrieving history fails.
 
-    사용 예:
-        # 최근 20개 체크포인트 조회
+    Usage Example:
+        # Retrieve the last 20 checkpoints
         POST /threads/{thread_id}/history
         {"limit": 20}
 
-        # 특정 체크포인트 이전의 히스토리 조회
+        # Retrieve history before a specific checkpoint
         POST /threads/{thread_id}/history
         {"limit": 10, "before": "checkpoint_uuid"}
 
-        # 메타데이터 필터링
+        # Filter by metadata
         POST /threads/{thread_id}/history
         {"metadata": {"source": "user_input"}}
     """
 
     try:
-        # 입력 값 유효성 검증 및 강제 변환
+        # Validate and coerce input values
         limit = request.limit or 10
         if not isinstance(limit, int) or limit < 1 or limit > 1000:
             raise HTTPException(422, "Invalid limit; must be an integer between 1 and 1000")
@@ -488,7 +488,7 @@ async def get_thread_history_post(
         if not isinstance(checkpoint, dict):
             raise HTTPException(422, "Invalid 'checkpoint' parameter; must be an object")
 
-        # 선택적 플래그
+        # Optional flags
         subgraphs = bool(request.subgraphs) if request.subgraphs is not None else False
         checkpoint_ns = request.checkpoint_ns
         if checkpoint_ns is not None and not isinstance(checkpoint_ns, str):
@@ -498,21 +498,21 @@ async def get_thread_history_post(
             f"history POST: thread_id={thread_id} limit={limit} before={before} subgraphs={subgraphs} checkpoint_ns={checkpoint_ns}"
         )
 
-        # 스레드 존재 여부 및 사용자 소유권 확인
+        # Verify thread existence and user ownership
         stmt = select(ThreadORM).where(ThreadORM.thread_id == thread_id, ThreadORM.user_id == user.identity)
         thread = await session.scalar(stmt)
         if not thread:
             raise HTTPException(404, f"Thread '{thread_id}' not found")
 
-        # 스레드 메타데이터에서 graph_id 추출
+        # Extract graph_id from thread metadata
         thread_metadata = thread.metadata_json or {}
         graph_id = thread_metadata.get("graph_id")
         if not graph_id:
-            # 아직 그래프가 연결되지 않은 경우 빈 히스토리 반환
+            # Return empty history if no graph is associated yet
             logger.info(f"history POST: no graph_id set for thread {thread_id}")
             return []
 
-        # 컴파일된 그래프 로드
+        # Load the compiled graph
         from ..services.langgraph_service import (
             create_thread_config,
             get_langgraph_service,
@@ -525,10 +525,10 @@ async def get_thread_history_post(
             logger.exception("Failed to load graph '%s' for history", graph_id)
             raise HTTPException(500, f"Failed to load graph '{graph_id}': {str(e)}") from e
 
-        # 사용자 컨텍스트와 thread_id를 포함한 설정 구성
+        # Configure settings including user context and thread_id
         config_dict: dict[str, Any] = create_thread_config(thread_id, user, {})
         config_dict.setdefault("configurable", {})
-        # 체크포인트 및 네임스페이스 병합 (제공된 경우)
+        # Merge checkpoint and namespace if provided
         if checkpoint:
             cfg_cp = checkpoint.copy()
             if checkpoint_ns is not None:
@@ -537,7 +537,7 @@ async def get_thread_history_post(
         elif checkpoint_ns is not None:
             config_dict["configurable"]["checkpoint_ns"] = checkpoint_ns
 
-        # 상태 히스토리 조회
+        # Retrieve state history
         state_snapshots = []
         metadata_filter: dict[str, Any] | None = metadata if metadata else None
 
@@ -556,7 +556,7 @@ async def get_thread_history_post(
         ):
             state_snapshots.append(snapshot)
 
-        # StateSnapshot 목록을 ThreadState 목록으로 변환 (서비스 활용)
+        # Convert list of StateSnapshots to list of ThreadStates (using the service)
         thread_states = thread_state_service.convert_snapshots_to_thread_states(state_snapshots, thread_id)
 
         return thread_states
@@ -565,7 +565,7 @@ async def get_thread_history_post(
         raise
     except Exception as e:
         logger.exception("Error in history POST for thread %s", thread_id)
-        # 백엔드가 not found 유사 케이스를 신호하는 경우 빈 리스트 반환
+        # Return an empty list if the backend signals a not-found-like case
         msg = str(e).lower()
         if "not found" in msg or "no checkpoint" in msg:
             return []
@@ -584,34 +584,34 @@ async def get_thread_history_get(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[ThreadState]:
-    """스레드 체크포인트 히스토리 조회 (GET 메서드 - SDK 호환용)
+    """Retrieve the checkpoint history of a thread (GET method - for SDK compatibility).
 
-    쿼리 파라미터를 통해 스레드 히스토리를 조회합니다.
-    POST 메서드와 동일한 기능을 제공하며, 간단한 조회 시 편리합니다.
+    Retrieves thread history via query parameters.
+    Provides the same functionality as the POST method and is convenient for simple queries.
 
     Args:
-        thread_id (str): 스레드 고유 식별자
-        limit (int): 반환할 최대 개수 (1-1000, 기본: 10)
-        before (str | None): 이 체크포인트 ID 이전의 상태만 반환
-        subgraphs (bool | None): 서브그래프 상태 포함 여부 (기본: False)
-        checkpoint_ns (str | None): 체크포인트 네임스페이스
-        metadata (str | None): JSON 인코딩된 메타데이터 필터
-        user (User): 인증된 사용자 (자동 주입)
-        session (AsyncSession): 비동기 DB 세션 (자동 주입)
+        thread_id (str): The unique identifier of the thread.
+        limit (int): The maximum number of items to return (1-1000, default: 10).
+        before (str | None): Return only states before this checkpoint ID.
+        subgraphs (bool | None): Whether to include states from subgraphs (default: False).
+        checkpoint_ns (str | None): The checkpoint namespace.
+        metadata (str | None): A JSON-encoded metadata filter.
+        user (User): The authenticated user (auto-injected).
+        session (AsyncSession): The async DB session (auto-injected).
 
     Returns:
-        list[ThreadState]: 체크포인트 목록 (최신순)
+        list[ThreadState]: A list of checkpoints (most recent first).
 
     Raises:
-        HTTPException 422: JSON 메타데이터 파싱 실패
+        HTTPException 422: If the JSON metadata fails to parse.
 
-    참고:
-        - 내부적으로 POST 엔드포인트 로직을 재사용합니다
-        - 복잡한 필터링이 필요한 경우 POST 메서드 사용 권장
-        - metadata는 JSON 문자열로 전달해야 합니다 (예: '{"key":"value"}')
+    Note:
+        - Internally reuses the POST endpoint logic.
+        - For complex filtering, the POST method is recommended.
+        - `metadata` must be passed as a JSON string (e.g., '{"key":"value"}').
     """
-    # POST 로직 재사용을 위해 ThreadHistoryRequest 객체 생성
-    # 메타데이터 JSON 문자열 파싱 (제공된 경우)
+    # Create a ThreadHistoryRequest object to reuse the POST logic
+    # Parse the metadata JSON string if provided
     parsed_metadata: dict[str, Any] | None = None
     if metadata:
         try:
@@ -637,45 +637,45 @@ async def delete_thread(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, str]:
-    """스레드 삭제
+    """Delete a thread.
 
-    스레드를 삭제하며 활성 실행(Run)이 있는 경우 자동으로 취소합니다.
-    데이터베이스 CASCADE DELETE 설정에 따라 연결된 모든 실행 레코드도 자동 삭제됩니다.
+    Deletes a thread and automatically cancels any active runs.
+    All associated run records are also automatically deleted due to the database's CASCADE DELETE setting.
 
-    동작 흐름:
-    1. 스레드 존재 및 소유권 확인
-    2. 활성 실행 목록 조회 (pending, running, streaming 상태)
-    3. 각 활성 실행에 대해:
-       - 스트리밍 서비스를 통해 실행 취소
-       - 백그라운드 태스크 정리 (asyncio task)
-    4. 스레드 레코드 삭제 (CASCADE로 실행도 함께 삭제)
-    5. 데이터베이스 커밋
+    Workflow:
+    1. Verify thread existence and ownership.
+    2. Retrieve a list of active runs (pending, running, streaming).
+    3. For each active run:
+       - Cancel the run via the streaming service.
+       - Clean up the background task (asyncio task).
+    4. Delete the thread record (which also deletes runs via CASCADE).
+    5. Commit the database transaction.
 
     Args:
-        thread_id (str): 삭제할 스레드 고유 식별자
-        user (User): 인증된 사용자 (자동 주입)
-        session (AsyncSession): 비동기 DB 세션 (자동 주입)
+        thread_id (str): The unique identifier of the thread to delete.
+        user (User): The authenticated user (auto-injected).
+        session (AsyncSession): The async DB session (auto-injected).
 
     Returns:
-        dict: {"status": "deleted"} 삭제 성공 응답
+        dict: A success response `{"status": "deleted"}`.
 
     Raises:
-        HTTPException 404: 스레드를 찾을 수 없는 경우
+        HTTPException 404: If the thread is not found.
 
-    참고:
-        - 활성 실행을 안전하게 취소하기 위해 streaming_service.cancel_run() 사용
-        - 백그라운드 태스크는 best-effort 방식으로 정리됩니다
-        - CASCADE DELETE로 Run 레코드가 자동 삭제되므로 수동 삭제 불필요
+    Note:
+        - `streaming_service.cancel_run()` is used to safely cancel active runs.
+        - Background tasks are cleaned up on a best-effort basis.
+        - Manual deletion of Run records is not necessary as CASCADE DELETE handles it.
     """
     logger = logging.getLogger(__name__)
 
-    # 스레드 존재 여부 확인
+    # Check if the thread exists
     stmt = select(ThreadORM).where(ThreadORM.thread_id == thread_id, ThreadORM.user_id == user.identity)
     thread = await session.scalar(stmt)
     if not thread:
         raise HTTPException(404, f"Thread '{thread_id}' not found")
 
-    # 활성 실행 확인 및 취소
+    # Check for and cancel active runs
     active_runs_stmt = select(RunORM).where(
         RunORM.thread_id == thread_id,
         RunORM.user_id == user.identity,
@@ -683,7 +683,7 @@ async def delete_thread(
     )
     active_runs_list = (await session.scalars(active_runs_stmt)).all()
 
-    # 활성 실행이 존재하면 취소
+    # Cancel active runs if they exist
     if active_runs_list:
         logger.info(f"Cancelling {len(active_runs_list)} active runs for thread {thread_id}")
 
@@ -691,14 +691,14 @@ async def delete_thread(
             run_id = run.run_id
             logger.debug(f"Cancelling run {run_id}")
 
-            # 스트리밍 서비스를 통해 실행 취소
+            # Cancel the run via the streaming service
             await streaming_service.cancel_run(run_id)
 
-            # 백그라운드 태스크 정리 (존재하는 경우)
+            # Clean up the background task if it exists
             task = active_runs.pop(run_id, None)
             if task and not task.done():
                 task.cancel()
-                # Best-effort: 태스크가 정리될 때까지 대기
+                # Best-effort: wait for the task to settle
                 try:
                     await task
                 except asyncio.CancelledError:
@@ -706,7 +706,7 @@ async def delete_thread(
                 except Exception as e:
                     logger.warning(f"Error waiting for task {run_id} to settle: {e}")
 
-    # 스레드 삭제 (CASCADE DELETE로 모든 실행 레코드도 자동 삭제됨)
+    # Delete the thread (CASCADE DELETE will also delete all run records)
     await session.delete(thread)
     await session.commit()
 
@@ -720,41 +720,41 @@ async def search_threads(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[Thread]:
-    """필터를 사용한 스레드 검색
+    """Search for threads using filters.
 
-    상태(status) 및 메타데이터 필터링을 지원하는 고급 스레드 검색 엔드포인트입니다.
-    페이지네이션을 통해 대량의 스레드를 효율적으로 조회할 수 있습니다.
+    An advanced thread search endpoint that supports filtering by status and metadata.
+    Allows for efficient retrieval of large numbers of threads through pagination.
 
-    동작 흐름:
-    1. 사용자 소유 스레드로 기본 필터 적용
-    2. status 필터 적용 (제공된 경우)
-    3. metadata JSONB 필터 적용 (각 key/value 쌍에 대해)
-    4. 페이지네이션 적용 (offset, limit)
-    5. 최신순 정렬 (created_at DESC)
-    6. Thread 모델 목록으로 변환하여 반환
+    Workflow:
+    1. Apply a default filter for threads owned by the user.
+    2. Apply the status filter if provided.
+    3. Apply the metadata JSONB filter for each key/value pair.
+    4. Apply pagination (offset, limit).
+    5. Sort by most recent (created_at DESC).
+    6. Convert the results to a list of Thread models and return.
 
     Args:
-        request (ThreadSearchRequest): 검색 요청
-            - status (str | None): 스레드 상태 필터 (예: "idle", "running")
-            - metadata (dict | None): 메타데이터 필터 (JSONB 필드 검색)
-            - offset (int): 페이지네이션 오프셋 (기본: 0)
-            - limit (int): 페이지네이션 제한 (기본: 20)
-        user (User): 인증된 사용자 (자동 주입)
-        session (AsyncSession): 비동기 DB 세션 (자동 주입)
+        request (ThreadSearchRequest): The search request.
+            - status (str | None): A thread status filter (e.g., "idle", "running").
+            - metadata (dict | None): A metadata filter (searches the JSONB field).
+            - offset (int): The pagination offset (default: 0).
+            - limit (int): The pagination limit (default: 20).
+        user (User): The authenticated user (auto-injected).
+        session (AsyncSession): The async DB session (auto-injected).
 
     Returns:
-        list[Thread]: 필터 조건에 맞는 스레드 목록 (최신순)
+        list[Thread]: A list of threads matching the filter conditions (most recent first).
 
-    사용 예:
-        # 특정 상태의 스레드 검색
+    Usage Example:
+        # Search for threads with a specific status
         POST /threads/search
         {"status": "idle"}
 
-        # 메타데이터로 검색
+        # Search by metadata
         POST /threads/search
         {"metadata": {"graph_id": "weather_agent"}}
 
-        # 복합 필터 및 페이지네이션
+        # Composite filter and pagination
         POST /threads/search
         {
             "status": "idle",
@@ -763,10 +763,10 @@ async def search_threads(
             "limit": 10
         }
 
-    참고:
-        - 메타데이터는 PostgreSQL JSONB 연산자를 사용하여 검색됩니다
-        - 모든 메타데이터 조건은 AND로 결합됩니다
-        - 사용자별 자동 격리가 적용됩니다
+    Note:
+        - Metadata is searched using PostgreSQL JSONB operators.
+        - All metadata conditions are combined with AND.
+        - Automatic user-specific isolation is applied.
     """
 
     stmt = select(ThreadORM).where(ThreadORM.user_id == user.identity)
@@ -775,13 +775,13 @@ async def search_threads(
         stmt = stmt.where(ThreadORM.status == request.status)
 
     if request.metadata:
-        # 각 key/value 쌍에 대해 JSONB 필드 필터링
+        # Filter the JSONB field for each key/value pair
         for key, value in request.metadata.items():
             stmt = stmt.where(ThreadORM.metadata_json[key].as_string() == str(value))
 
     offset = request.offset or 0
     limit = request.limit or 20
-    # 최신순 반환
+    # Return most recent first
     stmt = stmt.order_by(ThreadORM.created_at.desc()).offset(offset).limit(limit)
 
     result = await session.scalars(stmt)
@@ -796,5 +796,5 @@ async def search_threads(
         for t in rows
     ]
 
-    # 클라이언트/벤더 호환성을 위해 스레드 배열 반환
+    # Return an array of threads for client/vendor compatibility
     return threads_models

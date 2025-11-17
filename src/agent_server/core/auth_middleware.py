@@ -1,21 +1,21 @@
-"""LangGraph Agent Server용 인증 미들웨어 통합
+"""Authentication middleware integration for LangGraph Agent Server.
 
-이 모듈은 LangGraph의 인증 시스템을 FastAPI와 통합합니다.
-Starlette의 AuthenticationMiddleware를 사용하여 모든 요청에 대해
-인증을 처리하고 request.user에 사용자 정보를 설정합니다.
+This module integrates LangGraph's authentication system with FastAPI.
+It uses Starlette's AuthenticationMiddleware to handle authentication
+for all requests and sets user information on request.user.
 
-주요 구성 요소:
-- LangGraphUser: Starlette BaseUser 인터페이스 구현
-- LangGraphAuthBackend: auth.py의 @auth.authenticate 핸들러 호출
-- get_auth_backend: 환경 변수 기반 인증 백엔드 선택
-- on_auth_error: Agent Protocol 형식의 오류 응답
+Main components:
+- LangGraphUser: Implements the Starlette BaseUser interface.
+- LangGraphAuthBackend: Calls the @auth.authenticate handler in auth.py.
+- get_auth_backend: Selects the authentication backend based on environment variables.
+- on_auth_error: Provides error responses in Agent Protocol format.
 
-흐름:
-1. 클라이언트 요청 → AuthenticationMiddleware
-2. Middleware → LangGraphAuthBackend.authenticate()
-3. Backend → auth.py의 @auth.authenticate 핸들러
-4. 성공 시 → request.user = LangGraphUser 설정
-5. 실패 시 → on_auth_error로 401 응답
+Flow:
+1. Client request -> AuthenticationMiddleware
+2. Middleware -> LangGraphAuthBackend.authenticate()
+3. Backend -> @auth.authenticate handler in auth.py
+4. On success -> Set request.user = LangGraphUser
+5. On failure -> Respond with 401 via on_auth_error
 """
 
 import importlib.util
@@ -43,19 +43,19 @@ logger = logging.getLogger(__name__)
 
 
 class LangGraphUser(LangGraphBaseUser, BaseUser):
-    """Starlette BaseUser 인터페이스를 구현하면서 LangGraph 인증 데이터를 보존하는 사용자 래퍼
+    """User wrapper that implements the Starlette BaseUser interface while preserving LangGraph auth data.
 
-    이 클래스는 LangGraph auth 핸들러가 반환한 MinimalUserDict를 Starlette가
-    요구하는 BaseUser 인터페이스로 감쌉니다.
+    This class wraps the MinimalUserDict returned by the LangGraph auth handler
+    into the BaseUser interface required by Starlette.
 
-    필수 속성:
-    - identity: 사용자 고유 식별자
-    - is_authenticated: 인증 여부 (기본값 True)
-    - display_name: 표시 이름 (없으면 identity 사용)
+    Required attributes:
+    - identity: The unique identifier for the user.
+    - is_authenticated: Whether the user is authenticated (defaults to True).
+    - display_name: The display name (uses identity if not provided).
 
-    추가 속성:
-    - auth 핸들러가 반환한 모든 추가 필드에 __getattr__로 접근 가능
-      (예: permissions, org_id, email 등)
+    Additional attributes:
+    - Any additional fields returned by the auth handler are accessible via __getattr__
+      (e.g., permissions, org_id, email).
     """
 
     def __init__(self, user_data: Mapping[str, Any]) -> None:
@@ -81,20 +81,20 @@ class LangGraphUser(LangGraphBaseUser, BaseUser):
         return self.identity
 
     def __getattr__(self, name: str) -> Any:
-        """인증 데이터의 추가 필드에 접근 허용
+        """Allow access to additional fields from the authentication data.
 
-        auth 핸들러가 반환한 커스텀 필드(permissions, org_id 등)에
-        user.field_name 형식으로 접근할 수 있게 합니다.
+        Allows accessing custom fields returned by the auth handler (like permissions, org_id)
+        using user.field_name syntax.
         """
         if name in self._user_data:
             return self._user_data[name]
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
     def to_dict(self) -> dict[str, Any]:
-        """원본 사용자 데이터 딕셔너리 반환
+        """Return the original user data dictionary.
 
         Returns:
-            MinimalUserDict: auth 핸들러가 반환한 원본 데이터의 복사본
+            MinimalUserDict: A copy of the original data returned by the auth handler.
         """
         return dict(self._user_data)
 
@@ -118,33 +118,33 @@ class LangGraphUser(LangGraphBaseUser, BaseUser):
 
 
 class LangGraphAuthBackend(AuthenticationBackend):
-    """LangGraph 인증 시스템을 사용하는 인증 백엔드
+    """Authentication backend that uses the LangGraph authentication system.
 
-    이 클래스는 LangGraph의 @auth.authenticate 핸들러를 Starlette의
-    AuthenticationMiddleware와 연결합니다.
+    This class connects LangGraph's @auth.authenticate handler with Starlette's
+    AuthenticationMiddleware.
 
-    동작 방식:
-    1. 애플리케이션 시작 시 auth.py 파일에서 Auth 인스턴스 로드
-    2. 각 요청마다 authenticate() 메서드 호출
-    3. 요청 헤더를 auth 핸들러에 전달
-    4. 핸들러가 반환한 사용자 데이터를 LangGraphUser로 변환
-    5. Starlette에게 (credentials, user) 튜플 반환
+    How it works:
+    1. On application startup, dynamically loads the Auth instance from auth.py.
+    2. For each request, the authenticate() method is called.
+    3. It passes the request headers to the auth handler.
+    4. It converts the user data returned by the handler into a LangGraphUser.
+    5. It returns a (credentials, user) tuple to Starlette.
     """
 
     def __init__(self) -> None:
         self.auth_instance = self._load_auth_instance()
 
     def _load_auth_instance(self) -> Auth | None:
-        """auth.py 파일에서 Auth 인스턴스 동적 로드
+        """Dynamically load the Auth instance from the auth.py file.
 
-        프로젝트 루트의 auth.py에서 'auth' 변수를 찾아 로드합니다.
-        이를 통해 사용자가 auth.py를 수정하여 커스텀 인증을 구현할 수 있습니다.
+        It finds and loads the 'auth' variable from auth.py in the project root.
+        This allows users to implement custom authentication by modifying auth.py.
 
         Returns:
-            Auth | None: 성공 시 Auth 인스턴스, 실패 시 None
+            Auth | None: The Auth instance on success, or None on failure.
         """
         try:
-            # 프로젝트 루트의 auth.py에서 auth 인스턴스 임포트
+            # Import the auth instance from auth.py in the project root
             auth_path = Path.cwd() / "auth.py"
             if not auth_path.exists():
                 logger.warning(f"Auth file not found at {auth_path}")
@@ -172,23 +172,23 @@ class LangGraphAuthBackend(AuthenticationBackend):
             return None
 
     async def authenticate(self, conn: HTTPConnection) -> tuple[AuthCredentials, BaseUser] | None:
-        """LangGraph 인증 시스템을 사용하여 요청 인증
+        """Authenticate a request using the LangGraph authentication system.
 
-        이 메서드는 모든 HTTP 요청에 대해 호출됩니다.
-        auth.py의 @auth.authenticate 핸들러를 호출하여 사용자를 검증합니다.
+        This method is called for every HTTP request.
+        It calls the @auth.authenticate handler in auth.py to validate the user.
 
         Args:
-            conn (HTTPConnection): 요청 헤더가 포함된 HTTP 연결
+            conn (HTTPConnection): The HTTP connection, including request headers.
 
         Returns:
             tuple[AuthCredentials, BaseUser] | None:
-                인증 성공 시 (자격증명, 사용자) 튜플, 실패 시 None
+                A (credentials, user) tuple on successful authentication, or None on failure.
 
         Raises:
-            AuthenticationError: 인증 실패 시 발생
-                - 잘못된 토큰
-                - 만료된 토큰
-                - auth 핸들러가 Auth.exceptions.HTTPException 발생 시
+            AuthenticationError: Raised on authentication failure.
+                - Invalid token
+                - Expired token
+                - If the auth handler raises Auth.exceptions.HTTPException
         """
         if self.auth_instance is None:
             logger.warning("No auth instance available, skipping authentication")
@@ -199,8 +199,8 @@ class LangGraphAuthBackend(AuthenticationBackend):
             return None
 
         try:
-            # 헤더를 LangGraph가 기대하는 dict 형식으로 변환
-            # bytes 타입 헤더는 문자열로 디코딩
+            # Convert headers to the dict format expected by LangGraph
+            # Decode bytes-type headers to strings
             headers: dict[str, str] = {
                 key.decode() if isinstance(key, bytes) else key: value.decode()
                 if isinstance(value, bytes)
@@ -208,7 +208,7 @@ class LangGraphAuthBackend(AuthenticationBackend):
                 for key, value in conn.headers.items()
             }
 
-            # LangGraph의 authenticate 핸들러 호출 (auth.py의 @auth.authenticate)
+            # Call LangGraph's authenticate handler (@auth.authenticate in auth.py)
             user_payload = await self.auth_instance._authenticate_handler(headers)
 
             if not user_payload:
@@ -222,7 +222,7 @@ class LangGraphAuthBackend(AuthenticationBackend):
             if "identity" not in user_data:
                 raise AuthenticationError("Auth handler must return 'identity' field")
 
-            # 권한 추출하여 자격증명 생성
+            # Extract permissions to create credentials
             raw_permissions = user_data.get("permissions", [])
             if isinstance(raw_permissions, str):
                 permissions_list = [raw_permissions]
@@ -231,7 +231,7 @@ class LangGraphAuthBackend(AuthenticationBackend):
             else:
                 permissions_list = []
 
-            # Starlette 호환 사용자 및 자격증명 생성
+            # Create Starlette-compatible user and credentials
             credentials = AuthCredentials(permissions_list)
             user = LangGraphUser(user_data)
 
@@ -248,17 +248,17 @@ class LangGraphAuthBackend(AuthenticationBackend):
 
 
 def get_auth_backend() -> AuthenticationBackend:
-    """AUTH_TYPE 환경 변수 기반으로 인증 백엔드 반환
+    """Return an authentication backend based on the AUTH_TYPE environment variable.
 
-    현재 지원하는 AUTH_TYPE:
-    - noop: 인증 없음 (개발용, 모든 요청 허용)
-    - custom: 커스텀 인증 (auth.py에서 구현)
+    Currently supported AUTH_TYPEs:
+    - noop: No authentication (for development, allows all requests).
+    - custom: Custom authentication (implemented in auth.py).
 
     Returns:
-        AuthenticationBackend: 인증 백엔드 인스턴스
+        AuthenticationBackend: An instance of the authentication backend.
 
-    환경 변수:
-        AUTH_TYPE: 인증 타입 선택 (기본값: noop)
+    Environment Variables:
+        AUTH_TYPE: Selects the authentication type (defaults to 'noop').
     """
     auth_type = os.getenv("AUTH_TYPE", "noop").lower()
 
@@ -271,22 +271,22 @@ def get_auth_backend() -> AuthenticationBackend:
 
 
 def on_auth_error(conn: HTTPConnection, exc: AuthenticationError) -> JSONResponse:
-    """Agent Protocol 형식으로 인증 오류 처리
+    """Handle authentication errors in the Agent Protocol format.
 
-    인증 실패 시 표준 Agent Protocol 오류 응답을 생성합니다.
-    클라이언트는 일관된 형식의 오류 메시지를 받게 됩니다.
+    Generates a standard Agent Protocol error response on authentication failure.
+    This ensures that clients receive a consistent error message format.
 
     Args:
-        conn (HTTPConnection): HTTP 연결 (로깅용)
-        exc (AuthenticationError): 인증 오류
+        conn (HTTPConnection): The HTTP connection (for logging).
+        exc (AuthenticationError): The authentication error.
 
     Returns:
-        JSONResponse: Agent Protocol 오류 형식의 JSON 응답 (401 Unauthorized)
+        JSONResponse: A JSON response in the Agent Protocol error format (401 Unauthorized).
 
-    응답 형식:
+    Response Format:
         {
             "error": "unauthorized",
-            "message": "오류 메시지",
+            "message": "Error message",
             "details": {"authentication_required": true}
         }
     """

@@ -1,8 +1,8 @@
-"""LangGraph 통합 데이터베이스 관리자
+"""LangGraph Integrated Database Manager
 
-이 모듈은 Open LangGraph의 데이터베이스 연결 및 LangGraph 영속성 컴포넌트를 관리합니다.
-SQLAlchemy를 통해 Agent Protocol 메타데이터 테이블을 관리하고,
-LangGraph의 공식 AsyncPostgresSaver와 AsyncPostgresStore를 통해 대화 상태를 저장합니다.
+This module manages the database connection and LangGraph persistence components for Open LangGraph.
+It manages Agent Protocol metadata tables via SQLAlchemy,
+and stores conversation state using LangGraph's official AsyncPostgresSaver and AsyncPostgresStore.
 """
 
 import os
@@ -14,19 +14,19 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 
 class DatabaseManager:
-    """데이터베이스 연결 및 LangGraph 영속성 컴포넌트 관리자
+    """Manages database connections and LangGraph persistence components.
 
-    이 클래스는 다음 두 가지 데이터베이스 시스템을 관리합니다:
-    1. SQLAlchemy AsyncEngine: Agent Protocol 메타데이터 테이블용 (Assistant, Thread, Run)
-    2. LangGraph 컴포넌트: 대화 상태 및 체크포인트 저장용
-       - AsyncPostgresSaver: 체크포인트(상태 스냅샷) 저장
-       - AsyncPostgresStore: 장기 메모리 및 키-값 저장소
+    This class manages the following two database systems:
+    1. SQLAlchemy AsyncEngine: For Agent Protocol metadata tables (Assistant, Thread, Run).
+    2. LangGraph Components: For storing conversation state and checkpoints.
+       - AsyncPostgresSaver: Stores checkpoints (state snapshots).
+       - AsyncPostgresStore: Long-term memory and key-value store.
 
-    주요 특징:
-    - URL 형식 자동 변환: asyncpg → psycopg (LangGraph 요구사항)
-    - 싱글톤 패턴: 애플리케이션 전체에서 단일 인스턴스 사용
-    - 지연 초기화: 컴포넌트를 필요할 때만 생성
-    - 컨텍스트 매니저: 리소스 자동 정리
+    Key Features:
+    - Automatic URL format conversion: asyncpg -> psycopg (LangGraph requirement).
+    - Singleton pattern: A single instance is used throughout the application.
+    - Lazy initialization: Components are created only when needed.
+    - Context manager: Automatic resource cleanup.
     """
 
     def __init__(self) -> None:
@@ -40,47 +40,47 @@ class DatabaseManager:
         )
 
     async def initialize(self) -> None:
-        """데이터베이스 연결 및 LangGraph 컴포넌트 초기화
+        """Initialize database connection and LangGraph components.
 
-        이 메서드는 FastAPI 앱 시작 시 lifespan에서 호출됩니다.
-        SQLAlchemy 엔진을 생성하고 LangGraph DSN을 준비합니다.
-        실제 LangGraph 컴포넌트는 get_checkpointer/get_store에서 지연 생성됩니다.
+        This method is called from the lifespan event on FastAPI app startup.
+        It creates the SQLAlchemy engine and prepares the LangGraph DSN.
+        The actual LangGraph components are lazily created in get_checkpointer/get_store.
 
-        참고: 데이터베이스 스키마는 Alembic 마이그레이션으로 관리됩니다.
-              초기 설정 시 'python3 scripts/migrate.py upgrade' 실행 필요
+        Note: The database schema is managed by Alembic migrations.
+              Initial setup requires running 'python3 scripts/migrate.py upgrade'.
         """
-        # SQLAlchemy: Agent Protocol 메타데이터 테이블용 (최소한의 테이블만 사용)
+        # SQLAlchemy: For Agent Protocol metadata tables (only minimal tables are used)
         self.engine = create_async_engine(
             self._database_url,
             echo=os.getenv("DATABASE_ECHO", "false").lower() == "true",
         )
 
-        # asyncpg URL을 psycopg 형식으로 변환 (LangGraph 요구사항)
-        # LangGraph 패키지는 psycopg 드라이버를 사용하므로 URL 형식 변환 필요
-        # 예: postgresql+asyncpg://user:pass@host/db → postgresql://user:pass@host/db
+        # Convert asyncpg URL to psycopg format (LangGraph requirement)
+        # The LangGraph package uses the psycopg driver, so URL format conversion is necessary
+        # e.g., postgresql+asyncpg://user:pass@host/db → postgresql://user:pass@host/db
         dsn = self._database_url.replace("postgresql+asyncpg://", "postgresql://")
 
-        # LangGraph 컴포넌트를 필요할 때 생성하기 위해 연결 문자열 저장
+        # Store the connection string to create LangGraph components when needed
         self._langgraph_dsn = dsn
         self.checkpointer = None
         self.store = None
-        # 참고: LangGraph 컴포넌트는 컨텍스트 매니저로 필요할 때 생성됩니다
+        # Note: LangGraph components are created as needed using a context manager
 
-        # 참고: 데이터베이스 스키마는 이제 Alembic 마이그레이션으로 관리됩니다
-        # 마이그레이션 적용: 'alembic upgrade head' 또는 'python3 scripts/migrate.py upgrade'
+        # Note: The database schema is now managed by Alembic migrations
+        # Apply migrations: 'alembic upgrade head' or 'python3 scripts/migrate.py upgrade'
 
         print("✅ Database and LangGraph components initialized")
 
     async def close(self) -> None:
-        """데이터베이스 연결 종료
+        """Close database connections.
 
-        FastAPI 앱 종료 시 lifespan에서 호출됩니다.
-        모든 활성 연결을 정리하고 리소스를 해제합니다.
+        Called from the lifespan event on FastAPI app shutdown.
+        Cleans up all active connections and releases resources.
         """
         if self.engine:
             await self.engine.dispose()
 
-        # 캐시된 checkpointer가 있으면 종료
+        # If there is a cached checkpointer, close it
         if self._checkpointer_cm is not None:
             await self._checkpointer_cm.__aexit__(None, None, None)
             self._checkpointer_cm = None
@@ -94,75 +94,75 @@ class DatabaseManager:
         print("✅ Database connections closed")
 
     async def get_checkpointer(self) -> AsyncPostgresSaver:
-        """LangGraph 체크포인터(상태 저장소) 반환
+        """Return the LangGraph checkpointer (state store).
 
-        이 메서드는 AsyncPostgresSaver의 활성 인스턴스를 반환합니다.
+        This method returns an active instance of AsyncPostgresSaver.
 
-        동작 방식:
-        1. 첫 호출 시: 비동기 컨텍스트 매니저를 진입하고 saver 객체를 캐시
-        2. 이후 호출: 캐시된 saver 재사용 (DB 연결 풀 공유)
+        How it works:
+        1. On first call: Enters the async context manager and caches the saver object.
+        2. On subsequent calls: Reuses the cached saver (shares the DB connection pool).
 
-        캐싱 이유:
-        - LangGraph는 실제 saver 객체가 필요함 (get_next_version 등 메서드 호출)
-        - 컨텍스트 매니저 래퍼를 반환하면 실패
-        - 연결 풀 재사용으로 성능 향상
+        Why caching is needed:
+        - LangGraph needs the actual saver object (to call methods like get_next_version).
+        - Returning a context manager wrapper would fail.
+        - Reusing the connection pool improves performance.
 
         Returns:
-            AsyncPostgresSaver: LangGraph 체크포인터 인스턴스
+            AsyncPostgresSaver: An instance of the LangGraph checkpointer.
 
         Raises:
-            RuntimeError: 데이터베이스가 초기화되지 않은 경우
+            RuntimeError: If the database is not initialized.
         """
         if not hasattr(self, "_langgraph_dsn"):
             raise RuntimeError("Database not initialized")
         if self._checkpointer is None:
             self._checkpointer_cm = AsyncPostgresSaver.from_conn_string(self._langgraph_dsn)
             self._checkpointer = await self._checkpointer_cm.__aenter__()
-            # 필요한 테이블 생성 (멱등성: 여러 번 호출해도 안전)
+            # Create necessary tables (idempotent: safe to call multiple times)
             await self._checkpointer.setup()
         return self._checkpointer
 
     async def get_store(self) -> AsyncPostgresStore:
-        """LangGraph Store 인스턴스 반환 (벡터 검색 + 키-값 저장소)
+        """Return the LangGraph Store instance (vector search + key-value store).
 
-        AsyncPostgresStore는 다음 기능을 제공합니다:
-        - 키-값 저장소: 장기 메모리, 사용자 선호도 등
-        - 벡터 검색: 임베딩 기반 유사도 검색 (향후 지원)
+        AsyncPostgresStore provides the following features:
+        - Key-value store: For long-term memory, user preferences, etc.
+        - Vector search: Embedding-based similarity search (to be supported in the future).
 
-        체크포인터와 동일한 캐싱 패턴을 사용합니다.
+        It uses the same caching pattern as the checkpointer.
 
         Returns:
-            AsyncPostgresStore: LangGraph Store 인스턴스
+            AsyncPostgresStore: An instance of the LangGraph Store.
 
         Raises:
-            RuntimeError: 데이터베이스가 초기화되지 않은 경우
+            RuntimeError: If the database is not initialized.
         """
         if not hasattr(self, "_langgraph_dsn"):
             raise RuntimeError("Database not initialized")
         if self._store is None:
             self._store_cm = AsyncPostgresStore.from_conn_string(self._langgraph_dsn)
             self._store = await self._store_cm.__aenter__()
-            # 스키마 생성 (멱등성 보장)
+            # Create schema (idempotent)
             await self._store.setup()
         return self._store
 
     def get_engine(self) -> AsyncEngine:
-        """메타데이터 테이블용 SQLAlchemy 엔진 반환
+        """Return the SQLAlchemy engine for metadata tables.
 
-        이 엔진은 Agent Protocol 메타데이터 테이블(Assistant, Thread, Run 등)에만 사용됩니다.
-        LangGraph 상태 저장은 별도의 checkpointer/store를 사용합니다.
+        This engine is used only for Agent Protocol metadata tables (Assistant, Thread, Run, etc.).
+        LangGraph state storage uses a separate checkpointer/store.
 
         Returns:
-            AsyncEngine: SQLAlchemy 비동기 엔진
+            AsyncEngine: The SQLAlchemy async engine.
 
         Raises:
-            RuntimeError: 데이터베이스가 초기화되지 않은 경우
+            RuntimeError: If the database is not initialized.
         """
         if not self.engine:
             raise RuntimeError("Database not initialized")
         return self.engine
 
 
-# 전역 데이터베이스 관리자 인스턴스 (싱글톤 패턴)
-# 애플리케이션 전체에서 이 인스턴스를 사용하여 DB에 접근합니다
+# Global database manager instance (singleton pattern)
+# This instance is used throughout the application to access the DB
 db_manager = DatabaseManager()

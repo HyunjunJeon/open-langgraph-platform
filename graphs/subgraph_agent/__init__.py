@@ -1,21 +1,21 @@
-"""서브그래프 에이전트 (Subgraph Agent)
+"""Subgraph Agent
 
-이 모듈은 다른 그래프를 노드로 포함하는 서브그래프 구성(composition) 패턴을 보여주는
-최소한의 위임 그래프를 제공합니다.
+This module provides a minimal delegation graph that demonstrates the subgraph
+composition pattern, where another graph is included as a node.
 
-서브그래프 구성 패턴:
-• 기존 그래프(react_agent)를 새로운 그래프의 노드로 재사용
-• 그래프 중첩(nesting)을 통한 복잡한 워크플로우 구축
-• 위임(delegation) 패턴으로 모듈화된 에이전트 구조 구현
+Subgraph Composition Pattern:
+• Reuse an existing graph (react_agent) as a node in a new graph.
+• Build complex workflows through graph nesting.
+• Implement a modular agent structure with a delegation pattern.
 
-주요 구성 요소:
-• subgraph_agent 노드 - react_agent 그래프를 서브그래프로 실행
-• no_stream 노드 - 스트리밍 비활성화 태그를 사용한 LLM 호출
+Key Components:
+• subgraph_agent node - Executes the react_agent graph as a subgraph.
+• no_stream node - Calls an LLM with a streaming-disabled tag.
 
-사용 예:
+Usage Example:
     from subgraph_agent import graph
 
-    # 서브그래프를 포함한 복합 그래프 실행
+    # Execute the composite graph that includes the subgraph
     result = await graph.ainvoke({"messages": [...]})
 """
 

@@ -1,24 +1,24 @@
 def generate_event_id(run_id: str, sequence: int) -> str:
-    """SSE 이벤트 ID를 다음 형식으로 생성합니다: {run_id}_event_{sequence}
+    """Generate an SSE event ID in the format: {run_id}_event_{sequence}
 
-    매개변수:
-        run_id: 실행 식별자
-        sequence: 이벤트 순서 번호
+    Args:
+        run_id: The run identifier.
+        sequence: The event sequence number.
 
-    반환값:
-        형식화된 이벤트 ID 문자열
+    Returns:
+        The formatted event ID string.
     """
     return f"{run_id}_event_{sequence}"
 
 
 def extract_event_sequence(event_id: str) -> int:
-    """event_id 형식에서 숫자 시퀀스 추출: {run_id}_event_{sequence}
+    """Extract the numeric sequence from an event_id of the format: {run_id}_event_{sequence}
 
-    매개변수:
-        event_id: 이벤트 ID 문자열
+    Args:
+        event_id: The event ID string.
 
-    반환값:
-        추출에 성공한 경우 시퀀스 번호, 실패 시 0
+    Returns:
+        The sequence number if extraction is successful, otherwise 0.
     """
     try:
         return int(event_id.split("_event_")[-1])

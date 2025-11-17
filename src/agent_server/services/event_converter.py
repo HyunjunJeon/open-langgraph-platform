@@ -1,35 +1,35 @@
-"""SSE 스트리밍용 이벤트 변환기
+"""Event converter for SSE streaming
 
-이 모듈은 LangGraph 실행 이벤트를 SSE(Server-Sent Events) 형식으로 변환합니다.
-원본(raw) 이벤트와 저장된(stored) 이벤트 모두를 처리할 수 있습니다.
+This module converts LangGraph execution events into SSE (Server-Sent Events) format.
+It can handle both raw and stored events.
 
-주요 구성 요소:
-• EventConverter - 이벤트 변환 로직을 담당하는 클래스
-• convert_raw_to_sse() - 실시간 이벤트를 SSE로 변환
-• convert_stored_to_sse() - 저장된 이벤트를 SSE로 변환 (재생용)
+Main components:
+- EventConverter: Class responsible for event conversion logic
+- convert_raw_to_sse(): Converts real-time events to SSE
+- convert_stored_to_sse(): Converts stored events to SSE (for replay)
 
-지원하는 이벤트 타입:
-- messages: 메시지 청크 (스트리밍 응답)
-- values: 상태 값
-- updates: 상태 업데이트
-- state: 전체 상태
-- logs: 로그 메시지
-- tasks: 실행 작업
-- subgraphs: 서브그래프 정보
-- debug: 디버그 정보
-- events: 커스텀 이벤트
-- checkpoints: 체크포인트
-- custom: 사용자 정의 이벤트
-- end: 스트림 종료
-- error: 오류 정보
+Supported event types:
+- messages: Message chunks (streaming response)
+- values: State values
+- updates: State updates
+- state: Full state
+- logs: Log messages
+- tasks: Execution tasks
+- subgraphs: Subgraph information
+- debug: Debug information
+- events: Custom events
+- checkpoints: Checkpoints
+- custom: User-defined events
+- end: Stream termination
+- error: Error information
 
-사용 예:
+Usage example:
     converter = EventConverter()
 
-    # 실시간 이벤트 변환
+    # Convert real-time event
     sse_event = converter.convert_raw_to_sse(event_id, raw_event)
 
-    # 저장된 이벤트 변환 (재생)
+    # Convert stored event (replay)
     sse_event = converter.convert_stored_to_sse(stored_event, run_id)
 """
 
@@ -63,54 +63,54 @@ class StoredEventLike(Protocol):
 
 
 class EventConverter:
-    """LangGraph 이벤트를 SSE 형식으로 변환하는 변환기
+    """Converter for transforming LangGraph events into SSE format.
 
-    이 클래스는 LangGraph 그래프 실행 중 발생하는 다양한 이벤트를
-    SSE(Server-Sent Events) 표준 형식으로 변환합니다.
+    This class converts various events that occur during LangGraph graph execution
+    into the standard SSE (Server-Sent Events) format.
 
-    주요 기능:
-    - 실시간 이벤트 변환: LangGraph astream()에서 나오는 이벤트 처리
-    - 저장된 이벤트 변환: PostgreSQL에 저장된 이벤트 재생
-    - 스트림 모드 감지: 이벤트 타입 자동 인식 및 적절한 SSE 형식 적용
-    - Interrupt 처리: __interrupt__ 업데이트를 values 이벤트로 변환
+    Key features:
+    - Real-time event conversion: Handles events from LangGraph astream()
+    - Stored event conversion: Replays events stored in PostgreSQL
+    - Stream mode detection: Automatically recognizes event types and applies the appropriate SSE format
+    - Interrupt handling: Converts __interrupt__ updates into values events
 
-    SSE 형식:
-    - event: {이벤트_타입}
-    - data: {JSON_페이로드}
-    - id: {이벤트_ID}
+    SSE format:
+    - event: {event_type}
+    - data: {JSON_payload}
+    - id: {event_ID}
 
-    사용 패턴:
-    - 싱글톤 또는 서비스 계층에서 인스턴스화
-    - streaming_service에서 각 이벤트마다 convert_raw_to_sse() 호출
-    - event_store에서 재생 시 convert_stored_to_sse() 호출
+    Usage patterns:
+    - Instantiate as a singleton or in the service layer
+    - Call convert_raw_to_sse() for each event in streaming_service
+    - Call convert_stored_to_sse() for replay from event_store
     """
 
     def convert_raw_to_sse(self, event_id: str, raw_event: Any) -> str | None:
-        """실시간 원본 이벤트를 SSE 형식으로 변환
+        """Converts a real-time raw event into SSE format.
 
-        LangGraph의 graph.astream()에서 나오는 원본 이벤트를 받아
-        SSE(Server-Sent Events) 표준 형식의 문자열로 변환합니다.
+        Takes a raw event from LangGraph's graph.astream() and converts it
+        into a standard SSE (Server-Sent Events) format string.
 
-        동작 흐름:
-        1. 원본 이벤트를 파싱하여 스트림 모드와 페이로드 추출
-        2. 스트림 모드에 따라 적절한 SSE 이벤트 생성
-        3. SSE 형식 문자열 반환
+        Workflow:
+        1. Parse the raw event to extract the stream mode and payload.
+        2. Create the appropriate SSE event based on the stream mode.
+        3. Return the SSE formatted string.
 
         Args:
-            event_id (str): 이벤트 고유 식별자 (순차 증가 ID)
-            raw_event (Any): LangGraph에서 받은 원본 이벤트
-                - tuple: (stream_mode, payload) 또는 (node_path, stream_mode, payload)
-                - dict: 기본값 "values" 모드로 처리
+            event_id (str): A unique identifier for the event (sequentially increasing ID).
+            raw_event (Any): The raw event received from LangGraph.
+                - tuple: (stream_mode, payload) or (node_path, stream_mode, payload)
+                - dict: Processed with the default "values" mode.
 
         Returns:
-            str | None: SSE 형식 문자열 또는 None (변환 불가 시)
+            str | None: An SSE formatted string, or None if conversion is not possible.
 
-        SSE 형식 예시:
+        SSE format example:
             event: messages
             data: {"chunk": "Hello", "metadata": {...}}
             id: 1
 
-        사용 예:
+        Usage example:
             converter = EventConverter()
             sse_event = converter.convert_raw_to_sse("1", ("messages", message_data))
         """
@@ -118,41 +118,41 @@ class EventConverter:
         return self._create_sse_event(stream_mode, payload, event_id)
 
     def convert_stored_to_sse(self, stored_event: StoredEventLike, run_id: str | None = None) -> str | None:
-        """PostgreSQL에 저장된 이벤트를 SSE 형식으로 변환
+        """Converts an event stored in PostgreSQL into SSE format.
 
-        event_store에 저장된 이벤트를 SSE 형식으로 변환하여 재생합니다.
-        클라이언트가 연결이 끊겼다가 재연결할 때 이전 이벤트를 다시 전송하는 데 사용됩니다.
+        This is used to replay events from the event_store, for example, when a client
+        reconnects after a disconnection and needs to receive past events.
 
-        동작 흐름:
-        1. 저장된 이벤트의 타입(event) 확인
-        2. 저장된 데이터(data) 필드에서 페이로드 추출
-        3. 이벤트 타입별로 적절한 SSE 형식 생성
-        4. 원본 이벤트 ID 유지 (순서 보장)
+        Workflow:
+        1. Check the type (event) of the stored event.
+        2. Extract the payload from the stored data field.
+        3. Generate the appropriate SSE format for each event type.
+        4. Retain the original event ID to ensure order.
 
         Args:
-            stored_event: event_store에서 가져온 이벤트 ORM 객체
-                - event (str): 이벤트 타입
-                - data (dict): 저장된 페이로드
-                - id (str): 원본 이벤트 ID
-            run_id (str | None): 실행 ID (metadata 이벤트에 필요)
+            stored_event: The event ORM object fetched from the event_store.
+                - event (str): The event type.
+                - data (dict): The stored payload.
+                - id (str): The original event ID.
+            run_id (str | None): The run ID (required for metadata events).
 
         Returns:
-            str | None: SSE 형식 문자열 또는 None (변환 불가 시)
+            str | None: An SSE formatted string, or None if conversion is not possible.
 
-        지원하는 이벤트 타입:
-            - messages: 메시지 청크 (message_chunk, metadata)
-            - values: 상태 값 (chunk)
-            - metadata: 실행 메타데이터 (run_id 필요)
-            - state: 전체 상태 (state)
-            - logs: 로그 (logs)
-            - tasks: 작업 목록 (tasks)
-            - subgraphs: 서브그래프 정보 (subgraphs)
-            - debug: 디버그 정보 (debug)
-            - events: 커스텀 이벤트 (event)
-            - end: 스트림 종료
-            - error: 오류 정보 (error)
+        Supported event types:
+            - messages: Message chunk (message_chunk, metadata)
+            - values: State value (chunk)
+            - metadata: Execution metadata (requires run_id)
+            - state: Full state (state)
+            - logs: Logs (logs)
+            - tasks: Task list (tasks)
+            - subgraphs: Subgraph information (subgraphs)
+            - debug: Debug information (debug)
+            - events: Custom events (event)
+            - end: Stream termination
+            - error: Error information (error)
 
-        사용 예:
+        Usage example:
             stored_event = await event_store.get_event(event_id)
             sse_event = converter.convert_stored_to_sse(stored_event, run_id)
         """
@@ -172,7 +172,7 @@ class EventConverter:
             metadata = data_dict.get("metadata")
             if message_chunk is None:
                 return None
-            # 메타데이터가 있으면 튜플로, 없으면 청크만 전달
+            # If metadata exists, pass as a tuple; otherwise, pass only the chunk.
             message_data = (message_chunk, metadata) if metadata is not None else message_chunk
             return create_messages_event(message_data, event_id=event_id)
         elif event_type == "values":
@@ -202,89 +202,89 @@ class EventConverter:
         return None
 
     def _parse_raw_event(self, raw_event: Any) -> tuple[str, Any]:
-        """원본 이벤트를 파싱하여 (스트림_모드, 페이로드) 튜플 반환
+        """Parses a raw event and returns a (stream_mode, payload) tuple.
 
-        LangGraph의 graph.astream()은 여러 형식으로 이벤트를 반환할 수 있습니다:
-        - 2-튜플: (stream_mode, payload)
-        - 3-튜플: (node_path, stream_mode, payload)
-        - 단일 값: 딕셔너리 또는 기타 데이터
+        LangGraph's graph.astream() can return events in several formats:
+        - 2-tuple: (stream_mode, payload)
+        - 3-tuple: (node_path, stream_mode, payload)
+        - Single value: A dictionary or other data.
 
-        이 메서드는 이러한 다양한 형식을 정규화하여 일관된 처리가 가능하도록 합니다.
+        This method normalizes these various formats to allow for consistent processing.
 
         Args:
-            raw_event (Any): LangGraph에서 받은 원본 이벤트
+            raw_event (Any): The raw event received from LangGraph.
                 - tuple(2): (stream_mode, payload)
                 - tuple(3): (node_path, stream_mode, payload)
-                - 기타: 단일 값 (기본 "values" 모드로 처리)
+                - Other: A single value (processed with the default "values" mode).
 
         Returns:
-            tuple[str, Any]: (stream_mode, payload) 정규화된 튜플
-                - stream_mode: "messages", "values", "updates" 등
-                - payload: 이벤트 데이터
+            tuple[str, Any]: A normalized (stream_mode, payload) tuple.
+                - stream_mode: "messages", "values", "updates", etc.
+                - payload: The event data.
 
-        사용 예:
-            # 2-튜플 이벤트
+        Usage example:
+            # 2-tuple event
             mode, payload = self._parse_raw_event(("messages", message_data))
-            # 결과: ("messages", message_data)
+            # Result: ("messages", message_data)
 
-            # 3-튜플 이벤트 (노드 경로 포함)
+            # 3-tuple event (with node path)
             mode, payload = self._parse_raw_event(("path.to.node", "updates", data))
-            # 결과: ("updates", data) - 노드 경로는 현재 무시
+            # Result: ("updates", data) - node path is currently ignored
 
-            # 단일 값 이벤트
+            # Single value event
             mode, payload = self._parse_raw_event({"key": "value"})
-            # 결과: ("values", {"key": "value"})
+            # Result: ("values", {"key": "value"})
         """
         if isinstance(raw_event, tuple):
             if len(raw_event) == 2:
-                # (stream_mode, payload) 형식
+                # (stream_mode, payload) format
                 return raw_event[0], raw_event[1]
             elif len(raw_event) == 3:
-                # (node_path, stream_mode, payload) 형식
-                # 노드 경로는 현재 사용하지 않으므로 무시하고 모드와 페이로드만 반환
+                # (node_path, stream_mode, payload) format
+                # The node path is currently not used, so we ignore it and return only the mode and payload.
                 return raw_event[1], raw_event[2]
 
-        # 튜플이 아닌 경우 기본 "values" 모드로 처리
+        # If not a tuple, process with the default "values" mode.
         return "values", raw_event
 
     def _create_sse_event(self, stream_mode: str, payload: Any, event_id: str) -> str | None:
-        """스트림 모드에 따라 적절한 SSE 이벤트 생성
+        """Creates the appropriate SSE event based on the stream mode.
 
-        파싱된 스트림 모드와 페이로드를 받아 해당하는 SSE 형식 문자열을 생성합니다.
-        각 스트림 모드별로 적절한 SSE 생성 함수를 호출합니다.
+        Takes the parsed stream mode and payload and generates the corresponding
+        SSE formatted string by calling the appropriate SSE creation function for each stream mode.
 
-        특별 처리 규칙:
-        - updates 모드: __interrupt__ 키가 있으면 values 이벤트로 변환
-          (Human-in-the-Loop 인터럽트는 클라이언트에게 values로 전달)
+        Special handling rules:
+        - updates mode: If the __interrupt__ key is present, it is converted to a values event.
+          (Human-in-the-Loop interrupts are passed to the client as values).
 
         Args:
-            stream_mode (str): 이벤트 스트림 모드
-                - "messages": 메시지 청크
-                - "values": 상태 값
-                - "updates": 상태 업데이트
-                - "state": 전체 상태
-                - "logs": 로그 메시지
-                - "tasks": 실행 작업
-                - "subgraphs": 서브그래프 정보
-                - "debug": 디버그 정보
-                - "events": 커스텀 이벤트
-                - "checkpoints": 체크포인트
-                - "custom": 사용자 정의
-                - "end": 스트림 종료
-            payload (Any): 이벤트 데이터 페이로드
-            event_id (str): SSE 이벤트 ID
+            stream_mode (str): The event stream mode.
+                - "messages": Message chunk
+                - "values": State value
+                - "updates": State update
+                - "state": Full state
+                - "logs": Log message
+                - "tasks": Execution task
+                - "subgraphs": Subgraph information
+                - "debug": Debug information
+                - "events": Custom event
+                - "checkpoints": Checkpoint
+                - "custom": User-defined
+                - "end": Stream termination
+            payload (Any): The event data payload.
+            event_id (str): The SSE event ID.
 
         Returns:
-            str | None: SSE 형식 문자열 또는 None (알 수 없는 모드)
+            str | None: An SSE formatted string, or None for unknown modes.
 
-        SSE 형식:
+        SSE format:
             event: {stream_mode}
-            data: {JSON_직렬화된_payload}
+            data: {JSON_serialized_payload}
             id: {event_id}
 
-        사용 예:
+        Usage example:
             sse = self._create_sse_event("messages", message_data, "1")
-            # 결과:
+            # Result:
             # event: messages
             # data: {"chunk": "Hello"}
             # id: 1
@@ -294,8 +294,8 @@ class EventConverter:
         elif stream_mode == "values":
             return create_values_event(payload, event_id)
         elif stream_mode == "updates":
-            # Interrupt 업데이트를 values로 변환, 그 외에는 updates 유지
-            # HITL(Human-in-the-Loop) 패턴에서 __interrupt__ 키는 사용자 승인 대기 상태를 나타냄
+            # Convert interrupt updates to values, otherwise keep as updates.
+            # In the HITL (Human-in-the-Loop) pattern, the __interrupt__ key indicates a user approval waiting state.
             if isinstance(payload, dict) and "__interrupt__" in payload:
                 return create_values_event(payload, event_id)
             else:
@@ -319,7 +319,7 @@ class EventConverter:
         elif stream_mode == "end":
             return create_end_event(event_id)
 
-        # 알 수 없는 스트림 모드는 None 반환 (무시됨)
+        # Return None for unknown stream modes (will be ignored).
         return None
 
 

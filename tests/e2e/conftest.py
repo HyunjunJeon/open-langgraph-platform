@@ -14,18 +14,18 @@ import pytest
 
 @pytest.fixture(scope="session", autouse=True)
 def start_test_server() -> Generator[str, None, None]:
-    """E2E 테스트 세션 동안 자동으로 서버를 시작하고 종료합니다.
+    """Automatically starts and stops the server for the E2E test session.
 
-    이 fixture는:
-    1. 테스트 시작 전 uvicorn 서버를 백그라운드에서 실행
-    2. 헬스체크로 서버 준비 대기
-    3. SERVER_URL 환경변수 설정
-    4. 모든 E2E 테스트 완료 후 서버 종료
+    This fixture:
+    1. Runs the uvicorn server in the background before tests start.
+    2. Waits for the server to be ready using a health check.
+    3. Sets the SERVER_URL environment variable.
+    4. Shuts down the server after all E2E tests are complete.
 
     Yields:
-        서버 URL (http://localhost:8000)
+        The server URL (http://localhost:8000).
     """
-    # 서버가 이미 실행 중인지 확인
+    # Check if the server is already running
     server_url = os.getenv("SERVER_URL", "http://localhost:8000")
 
     try:
@@ -37,12 +37,12 @@ def start_test_server() -> Generator[str, None, None]:
     except (httpx.ConnectError, httpx.TimeoutException):
         pass
 
-    # 서버 시작
+    # Start the server
     print(f"\n{'='*80}")
     print(f"Starting test server at {server_url}")
     print(f"{'='*80}\n")
 
-    # Uvicorn 프로세스 시작
+    # Start the Uvicorn process
     server_process = subprocess.Popen(
         [
             "uv", "run", "uvicorn",
@@ -55,7 +55,7 @@ def start_test_server() -> Generator[str, None, None]:
         text=True,
     )
 
-    # 서버 준비 대기 (최대 30초)
+    # Wait for the server to be ready (max 30 seconds)
     max_wait = 30
     start_time = time.time()
     server_ready = False
@@ -70,7 +70,7 @@ def start_test_server() -> Generator[str, None, None]:
         except (httpx.ConnectError, httpx.TimeoutException):
             pass
 
-        # 서버 프로세스가 종료되었는지 확인
+        # Check if the server process has terminated
         if server_process.poll() is not None:
             stdout, stderr = server_process.communicate()
             print("✗ Server process terminated unexpectedly")
@@ -85,13 +85,13 @@ def start_test_server() -> Generator[str, None, None]:
         server_process.wait(timeout=5)
         pytest.fail(f"Server did not become ready within {max_wait} seconds")
 
-    # 환경변수 설정
+    # Set environment variable
     os.environ["SERVER_URL"] = server_url
 
     try:
         yield server_url
     finally:
-        # 서버 종료
+        # Shut down the server
         print(f"\n{'='*80}")
         print("Shutting down test server")
         print(f"{'='*80}\n")
@@ -108,11 +108,11 @@ def start_test_server() -> Generator[str, None, None]:
 
 @pytest.fixture(scope="session")
 def server_url(start_test_server: str) -> str:
-    """서버 URL을 반환하는 fixture
+    """A fixture that returns the server URL.
 
-    테스트에서 명시적으로 서버 URL이 필요한 경우 사용할 수 있습니다.
+    Can be used when tests explicitly need the server URL.
 
     Returns:
-        서버 URL (http://localhost:8000)
+        The server URL (http://localhost:8000).
     """
     return start_test_server

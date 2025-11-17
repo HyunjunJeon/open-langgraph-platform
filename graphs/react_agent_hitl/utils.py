@@ -1,19 +1,19 @@
-"""HITL 에이전트 유틸리티 및 헬퍼 함수
+"""HITL Agent Utilities and Helper Functions
 
-이 모듈은 Human-in-the-Loop ReAct 에이전트를 지원하는 공통 유틸리티 함수를 제공합니다.
-LangChain 메시지 처리 및 채팅 모델 로딩을 위한 헬퍼를 포함합니다.
+This module provides common utility functions that support the Human-in-the-Loop ReAct agent.
+It includes helpers for LangChain message processing and chat model loading.
 
-주요 유틸리티:
-• get_message_text() - 메시지에서 텍스트 콘텐츠 추출
-• load_chat_model() - 문자열 형식으로 채팅 모델 로드
+Main Utilities:
+• get_message_text() - Extracts text content from a message.
+• load_chat_model() - Loads a chat model from a string format.
 
-사용 예:
+Usage Example:
     from graphs.react_agent_hitl.utils import get_message_text, load_chat_model
 
-    # 메시지 텍스트 추출
+    # Extract message text
     text = get_message_text(message)
 
-    # 모델 로드
+    # Load a model
     model = load_chat_model("openai/gpt-4")
 """
 
@@ -23,31 +23,31 @@ from langchain_core.messages import BaseMessage
 
 
 def get_message_text(msg: BaseMessage) -> str:
-    """메시지 객체에서 텍스트 콘텐츠를 추출
+    """Extracts the text content from a message object.
 
-    LangChain 메시지는 다양한 형식의 콘텐츠를 포함할 수 있습니다
-    (단순 문자열, 딕셔너리, 또는 멀티모달 콘텐츠 리스트).
-    이 함수는 모든 형식을 처리하여 텍스트만 추출합니다.
+    LangChain messages can contain content in various formats
+    (a simple string, a dictionary, or a list for multimodal content).
+    This function handles all formats to extract only the text.
 
-    지원하는 콘텐츠 형식:
-    1. 문자열: 그대로 반환
-    2. 딕셔너리: "text" 키의 값 추출
-    3. 리스트: 각 항목에서 텍스트 추출 후 결합
+    Supported content formats:
+    1. String: Returns as is.
+    2. Dictionary: Extracts the value of the "text" key.
+    3. List: Extracts the text from each item and then joins them.
 
     Args:
-        msg (BaseMessage): 텍스트를 추출할 LangChain 메시지 객체
+        msg (BaseMessage): The LangChain message object to extract text from.
 
     Returns:
-        str: 추출된 텍스트 콘텐츠 (리스트인 경우 결합 후 공백 제거)
+        str: The extracted text content (joined and stripped if it's a list).
 
-    사용 예:
+    Usage Example:
         from langchain_core.messages import HumanMessage
 
-        # 단순 문자열 메시지
+        # Simple string message
         msg1 = HumanMessage(content="Hello")
         text1 = get_message_text(msg1)  # "Hello"
 
-        # 멀티모달 메시지 (텍스트 + 이미지)
+        # Multimodal message (text + image)
         msg2 = HumanMessage(content=[
             {"type": "text", "text": "Describe this image"},
             {"type": "image_url", "image_url": "..."}
@@ -57,59 +57,59 @@ def get_message_text(msg: BaseMessage) -> str:
     content = msg.content
 
     if isinstance(content, str):
-        # 단순 문자열 콘텐츠
+        # Simple string content
         return content
     elif isinstance(content, dict):
-        # 딕셔너리 형식 (일반적으로 "text" 키 포함)
+        # Dictionary format (usually includes a "text" key)
         return content.get("text", "")
     else:
-        # 리스트 형식 (멀티모달 콘텐츠)
-        # 각 항목에서 텍스트만 추출하여 결합
+        # List format (multimodal content)
+        # Extract only the text from each item and join them
         txts = [c if isinstance(c, str) else (c.get("text") or "") for c in content]
         return "".join(txts).strip()
 
 
 def load_chat_model(fully_specified_name: str) -> BaseChatModel:
-    """문자열 형식에서 채팅 모델을 로드
+    """Loads a chat model from a string format.
 
-    "provider/model" 형식의 문자열로부터 LangChain 채팅 모델을 초기화합니다.
-    이 방식은 설정 파일이나 환경 변수로 모델을 지정할 때 유용합니다.
+    Initializes a LangChain chat model from a string in "provider/model" format.
+    This approach is useful for specifying a model in a configuration file or environment variable.
 
-    지원하는 제공자:
-    - openai: OpenAI 모델 (gpt-4, gpt-3.5-turbo 등)
-    - anthropic: Anthropic 모델 (claude-3-opus, claude-3-sonnet 등)
-    - google-genai: Google Gemini 모델
-    - azure-openai: Azure OpenAI 서비스
-    - 기타 LangChain이 지원하는 모든 제공자
+    Supported providers:
+    - openai: OpenAI models (gpt-4, gpt-3.5-turbo, etc.)
+    - anthropic: Anthropic models (claude-3-opus, claude-3-sonnet, etc.)
+    - google-genai: Google Gemini models
+    - azure-openai: Azure OpenAI service
+    - Any other provider supported by LangChain
 
     Args:
-        fully_specified_name (str): "제공자/모델" 형식의 문자열
-                                   예: "openai/gpt-4", "anthropic/claude-3-opus"
+        fully_specified_name (str): A string in "provider/model" format.
+                                   Examples: "openai/gpt-4", "anthropic/claude-3-opus"
 
     Returns:
-        BaseChatModel: 초기화된 LangChain 채팅 모델 인스턴스
+        BaseChatModel: An initialized LangChain chat model instance.
 
     Raises:
-        ValueError: 형식이 잘못된 경우 (슬래시가 없는 경우)
-        ImportError: 제공자의 SDK가 설치되지 않은 경우
+        ValueError: If the format is incorrect (e.g., no slash).
+        ImportError: If the provider's SDK is not installed.
 
-    사용 예:
-        # OpenAI GPT-4 모델 로드
+    Usage Example:
+        # Load the OpenAI GPT-4 model
         model = load_chat_model("openai/gpt-4")
 
-        # Anthropic Claude 모델 로드
+        # Load the Anthropic Claude model
         model = load_chat_model("anthropic/claude-3-opus-20240229")
 
-        # 설정에서 동적으로 로드
+        # Load dynamically from a configuration
         model_name = config.get("model")  # "openai/gpt-4o"
         model = load_chat_model(model_name)
 
-    참고:
-        - API 키는 환경 변수를 통해 설정되어야 합니다
-        - 제공자별로 필요한 패키지가 설치되어 있어야 합니다
+    Note:
+        - API keys must be set via environment variables.
+        - The necessary packages for each provider must be installed.
     """
-    # 문자열을 제공자와 모델명으로 분리
+    # Split the string into provider and model name
     provider, model = fully_specified_name.split("/", maxsplit=1)
 
-    # LangChain의 init_chat_model로 모델 초기화
+    # Initialize the model with LangChain's init_chat_model
     return init_chat_model(model, model_provider=provider)

@@ -1,25 +1,25 @@
-"""ReAct 에이전트 런타임 컨텍스트 정의
+"""ReAct Agent Runtime Context Definition
 
-이 모듈은 LangGraph의 Runtime[Context] 패턴을 사용하여 에이전트 실행 시
-필요한 설정 매개변수를 정의합니다. 컨텍스트는 그래프 노드에서 runtime.context를
-통해 접근할 수 있으며, 사용자별 설정, 모델 선택, 도구 동작을 제어합니다.
+This module defines the configuration parameters required for agent execution
+using LangGraph's Runtime[Context] pattern. The context is accessible in graph nodes
+via runtime.context and controls user-specific settings, model selection, and tool behavior.
 
-주요 구성 요소:
-• Context - 에이전트 실행 설정을 담는 데이터클래스
-  - system_prompt: 에이전트 동작을 정의하는 시스템 프롬프트
-  - model: 사용할 LLM 모델 (provider/model-name 형식)
-  - max_search_results: 검색 도구의 최대 결과 수
+Main components:
+• Context - A dataclass containing agent execution settings
+  - system_prompt: The system prompt that defines the agent's behavior
+  - model: The LLM model to use (in provider/model-name format)
+  - max_search_results: The maximum number of results for the search tool
 
-사용 패턴:
-    # 그래프 노드에서 컨텍스트 접근
+Usage pattern:
+    # Accessing context in a graph node
     def my_node(state: State, *, runtime: Runtime[Context]):
         model_name = runtime.context.model
         system_prompt = runtime.context.system_prompt
 
-특징:
-- 환경 변수 자동 로드: __post_init__에서 대문자 환경 변수 확인
-- 타입 안전성: dataclass로 정의되어 IDE 자동완성 지원
-- 메타데이터: 각 필드에 설명 포함하여 문서화 및 UI 생성 지원
+Features:
+- Automatic environment variable loading: __post_init__ checks for uppercase environment variables
+- Type safety: Defined as a dataclass, providing IDE autocompletion support
+- Metadata: Each field includes a description to support documentation and UI generation
 """
 
 from __future__ import annotations
@@ -33,36 +33,37 @@ from react_agent import prompts
 
 @dataclass(kw_only=True)
 class Context:
-    """ReAct 에이전트 런타임 컨텍스트
+    """ReAct Agent Runtime Context
 
-    이 클래스는 LangGraph 그래프 실행 시 Runtime[Context] 패턴을 통해
-    노드에 전달되는 설정 매개변수를 정의합니다. 각 필드는 에이전트의
-    동작을 제어하며, 기본값 또는 환경 변수를 통해 설정할 수 있습니다.
+    This class defines the configuration parameters passed to nodes via the
+    Runtime[Context] pattern during LangGraph graph execution. Each field
+    controls the agent's behavior and can be set via default values or
+    environment variables.
 
-    주요 필드:
-    - system_prompt: 에이전트의 역할과 동작을 정의하는 시스템 프롬프트
-    - model: LLM 모델 식별자 (예: "openai/gpt-4o-mini")
-    - max_search_results: 검색 도구가 반환할 최대 결과 수
+    Key fields:
+    - system_prompt: The system prompt that defines the agent's role and behavior
+    - model: The LLM model identifier (e.g., "openai/gpt-4o-mini")
+    - max_search_results: The maximum number of results the search tool should return
 
-    사용 예:
-        # 기본값으로 컨텍스트 생성
+    Usage example:
+        # Create context with default values
         context = Context()
 
-        # 커스텀 설정으로 컨텍스트 생성
+        # Create context with custom settings
         context = Context(
             model="anthropic/claude-3-5-sonnet-20241022",
             max_search_results=5
         )
 
-        # 그래프 노드에서 접근
+        # Access in a graph node
         def my_node(state: State, *, runtime: Runtime[Context]):
             model = runtime.context.model
             prompt = runtime.context.system_prompt
 
-    참고:
-        - kw_only=True로 키워드 인자만 허용
-        - __post_init__에서 환경 변수 자동 로드 수행
-        - metadata는 LangGraph Studio UI에서 설정 폼 생성에 사용됨
+    Note:
+        - kw_only=True allows keyword-only arguments
+        - __post_init__ performs automatic loading from environment variables
+        - metadata is used by LangGraph Studio to generate configuration forms in the UI
     """
 
     system_prompt: str = field(
@@ -72,11 +73,11 @@ class Context:
             "This prompt sets the context and behavior for the agent."
         },
     )
-    """에이전트의 시스템 프롬프트
+    """The agent's system prompt.
 
-    에이전트의 역할, 동작 방식, 제약 사항을 정의하는 프롬프트입니다.
-    기본값은 prompts.SYSTEM_PROMPT에서 가져오며, 환경 변수 SYSTEM_PROMPT로
-    오버라이드할 수 있습니다.
+    This prompt defines the agent's role, behavior, and constraints.
+    The default value is taken from prompts.SYSTEM_PROMPT and can be
+    overridden by the SYSTEM_PROMPT environment variable.
     """
 
     model: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
@@ -86,15 +87,15 @@ class Context:
             "Should be in the form: provider/model-name."
         },
     )
-    """사용할 LLM 모델 식별자
+    """The LLM model identifier to use.
 
-    "provider/model-name" 형식으로 지정합니다.
-    예: "openai/gpt-4o-mini", "anthropic/claude-3-5-sonnet-20241022"
+    Specified in "provider/model-name" format.
+    Examples: "openai/gpt-4o-mini", "anthropic/claude-3-5-sonnet-20241022"
 
-    __template_metadata__의 "kind": "llm"은 LangGraph Studio에서
-    모델 선택 UI를 렌더링할 때 사용됩니다.
+    The "__template_metadata__": {"kind": "llm"} is used by LangGraph Studio
+    to render a model selection UI.
 
-    환경 변수 MODEL로 오버라이드할 수 있습니다.
+    Can be overridden by the MODEL environment variable.
     """
 
     max_search_results: int = field(
@@ -103,45 +104,46 @@ class Context:
             "description": "The maximum number of search results to return for each search query."
         },
     )
-    """검색 도구의 최대 결과 수
+    """The maximum number of results for the search tool.
 
-    search 도구가 각 검색 쿼리에 대해 반환할 최대 결과 개수입니다.
-    값이 클수록 더 많은 정보를 제공하지만 토큰 사용량과 처리 시간이 증가합니다.
+    This is the maximum number of results the search tool will return for each query.
+    A larger value provides more information but increases token usage and processing time.
 
-    환경 변수 MAX_SEARCH_RESULTS로 오버라이드할 수 있습니다.
+    Can be overridden by the MAX_SEARCH_RESULTS environment variable.
     """
 
     def __post_init__(self) -> None:
-        """환경 변수에서 설정값 자동 로드
+        """Automatically load settings from environment variables.
 
-        데이터클래스 초기화 후 실행되어, 명시적으로 전달되지 않은 필드에 대해
-        환경 변수에서 값을 로드합니다. 필드명을 대문자로 변환한 환경 변수를 확인합니다.
+        This method runs after the dataclass is initialized and loads values
+        from environment variables for fields that were not explicitly provided.
+        It checks for environment variables named after the uppercase version of the field names.
 
-        동작 흐름:
-        1. 모든 dataclass 필드를 순회
-        2. init=False인 필드는 건너뜀 (계산된 필드 등)
-        3. 현재 값이 기본값과 같으면 환경 변수 확인
-        4. 환경 변수가 존재하면 해당 값으로 설정, 없으면 기본값 유지
+        Flow:
+        1. Iterate through all dataclass fields.
+        2. Skip fields with init=False (e.g., calculated fields).
+        3. If the current value is the same as the default, check for an environment variable.
+        4. If the environment variable exists, set the field to its value; otherwise, keep the default.
 
-        예시:
-            # 환경 변수 설정: MODEL=anthropic/claude-3-5-sonnet-20241022
-            context = Context()  # model 필드는 환경 변수에서 로드됨
+        Example:
+            # Set environment variable: MODEL=anthropic/claude-3-5-sonnet-20241022
+            context = Context()  # The model field will be loaded from the environment variable.
 
-            # 명시적으로 전달하면 환경 변수 무시
+            # Explicitly passed values ignore environment variables.
             context = Context(model="openai/gpt-4o-mini")
 
-        참고:
-            - 필드명을 대문자로 변환하여 환경 변수명 생성
+        Note:
+            - Environment variable names are generated by converting field names to uppercase.
             - system_prompt -> SYSTEM_PROMPT
             - max_search_results -> MAX_SEARCH_RESULTS
         """
         for f in fields(self):
-            # 초기화 불가능한 필드는 건너뜀 (계산된 필드, 내부 필드 등)
+            # Skip non-initializable fields (e.g., calculated fields, internal fields)
             if not f.init:
                 continue
 
-            # 기본값이 그대로 사용된 경우에만 환경 변수 확인
+            # Only check environment variables if the default value is still being used
             if getattr(self, f.name) == f.default:
-                # 필드명을 대문자로 변환하여 환경 변수 조회
-                # 예: system_prompt -> SYSTEM_PROMPT
+                # Look up environment variable by converting field name to uppercase
+                # e.g., system_prompt -> SYSTEM_PROMPT
                 setattr(self, f.name, os.environ.get(f.name.upper(), f.default))

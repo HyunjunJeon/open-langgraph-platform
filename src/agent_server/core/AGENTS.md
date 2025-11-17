@@ -1,103 +1,103 @@
-# Core Layer - 핵심 인프라 및 데이터 접근 계층
+# Core Layer - Core Infrastructure and Data Access Layer
 
-## 폴더 개요
+## Folder Overview
 
-`core/` 디렉토리는 Open LangGraph 서버의 **기반 인프라 계층**입니다. 데이터베이스 연결, 인증, 직렬화, SSE 스트리밍 등 애플리케이션 전체에서 사용되는 핵심 컴포넌트를 제공합니다.
+The `core/` directory is the **foundational infrastructure layer** of the Open LangGraph server. It provides core components used throughout the application, such as database connections, authentication, serialization, and SSE streaming.
 
-### 핵심 역할
+### Core Roles
 
-1. **데이터베이스 관리**: SQLAlchemy와 LangGraph 영속성 컴포넌트의 통합 관리
-2. **인증 시스템**: LangGraph SDK Auth와 FastAPI의 완전한 통합
-3. **ORM 모델**: Agent Protocol 메타데이터 테이블 정의
-4. **직렬화**: LangGraph 객체의 JSON 변환 처리
-5. **SSE 포맷팅**: Server-Sent Events 표준 메시지 생성
-6. **헬스 체크**: 서비스 상태 모니터링 엔드포인트
+1.  **Database Management**: Integrated management of SQLAlchemy and LangGraph persistence components.
+2.  **Authentication System**: Full integration of LangGraph SDK Auth with FastAPI.
+3.  **ORM Models**: Definition of Agent Protocol metadata tables.
+4.  **Serialization**: Handling JSON conversion of LangGraph objects.
+5.  **SSE Formatting**: Generation of standard Server-Sent Events messages.
+6.  **Health Checks**: Service status monitoring endpoints.
 
-### 아키텍처 원칙
+### Architectural Principles
 
-- **싱글톤 패턴**: 데이터베이스 연결 등 공유 리소스는 전역 인스턴스 사용
-- **지연 초기화**: 리소스를 필요할 때만 생성하여 시작 시간 단축
-- **컨텍스트 관리**: 비동기 컨텍스트 매니저로 리소스 자동 정리
-- **계층 분리**: API/Services 계층이 직접 데이터베이스를 다루지 않고 Core를 통해 접근
+-   **Singleton Pattern**: Use of global instances for shared resources like database connections.
+-   **Lazy Initialization**: Resources are created only when needed to reduce startup time.
+-   **Context Management**: Automatic resource cleanup using asynchronous context managers.
+-   **Layer Separation**: The API/Services layer does not directly interact with the database but accesses it through the Core layer.
 
 ---
 
-## 파일 목록 및 설명
+## File List and Descriptions
 
-### 핵심 데이터베이스 계층
+### Core Database Layer
 
-#### `database.py` - 데이터베이스 관리자
-**역할**: SQLAlchemy와 LangGraph 컴포넌트의 통합 관리
+#### `database.py` - Database Manager
+**Role**: Integrated management of SQLAlchemy and LangGraph components.
 
-**주요 클래스**:
-- `DatabaseManager`: 데이터베이스 연결 및 LangGraph 영속성 관리
-  - SQLAlchemy 엔진 생성 (Agent Protocol 메타데이터용)
-  - LangGraph `AsyncPostgresSaver` 관리 (체크포인트 저장)
-  - LangGraph `AsyncPostgresStore` 관리 (장기 메모리 저장)
-  - URL 형식 자동 변환 (asyncpg ↔ psycopg)
+**Main Class**:
+-   `DatabaseManager`: Manages database connections and LangGraph persistence.
+    -   Creates SQLAlchemy engine (for Agent Protocol metadata).
+    -   Manages LangGraph `AsyncPostgresSaver` (for checkpoint storage).
+    -   Manages LangGraph `AsyncPostgresStore` (for long-term memory storage).
+    -   Automatically converts URL formats (asyncpg ↔ psycopg).
 
-**싱글톤 인스턴스**:
+**Singleton Instance**:
 ```python
-db_manager = DatabaseManager()  # 전역 인스턴스
+db_manager = DatabaseManager()  # Global instance
 ```
 
-**주요 메서드**:
-- `initialize()`: 앱 시작 시 DB 연결 초기화
-- `close()`: 앱 종료 시 연결 정리
-- `get_checkpointer()`: LangGraph 체크포인터 반환 (캐시됨)
-- `get_store()`: LangGraph Store 반환 (캐시됨)
-- `get_engine()`: SQLAlchemy 엔진 반환
+**Main Methods**:
+-   `initialize()`: Initializes DB connection on app startup.
+-   `close()`: Cleans up connections on app shutdown.
+-   `get_checkpointer()`: Returns the LangGraph checkpointer (cached).
+-   `get_store()`: Returns the LangGraph Store (cached).
+-   `get_engine()`: Returns the SQLAlchemy engine.
 
-**특이 사항**:
-- LangGraph는 `postgresql://` URL 필요, SQLAlchemy는 `postgresql+asyncpg://` 사용
-- 체크포인터/Store는 첫 호출 시 컨텍스트 매니저 진입 후 캐시
-- 데이터베이스 스키마는 Alembic 마이그레이션으로 관리
+**Special Notes**:
+-   LangGraph requires a `postgresql://` URL, while SQLAlchemy uses `postgresql+asyncpg://`.
+-   Checkpointer/Store are cached after entering the context manager on the first call.
+-   The database schema is managed by Alembic migrations.
 
-#### `orm.py` - SQLAlchemy ORM 모델
-**역할**: Agent Protocol 메타데이터 테이블 정의
+#### `orm.py` - SQLAlchemy ORM Models
+**Role**: Defines Agent Protocol metadata tables.
 
-**주요 모델**:
-1. **`Assistant`**: 어시스턴트 정의
-   - `assistant_id`: UUID (자동 생성)
-   - `graph_id`: 실행할 그래프 ID
-   - `config`: LangGraph 실행 설정 (JSONB)
-   - `context`: 런타임 컨텍스트 (JSONB)
-   - `user_id`: 멀티테넌트 격리
-   - 인덱스: user_id, (user_id, assistant_id), (user_id, graph_id, config)
+**Main Models**:
+1.  **`Assistant`**: Assistant definition.
+    -   `assistant_id`: UUID (auto-generated).
+    -   `graph_id`: ID of the graph to execute.
+    -   `config`: LangGraph execution settings (JSONB).
+    -   `context`: Runtime context (JSONB).
+    -   `user_id`: For multi-tenant isolation.
+    -   Indexes: user_id, (user_id, assistant_id), (user_id, graph_id, config).
 
-2. **`AssistantVersion`**: 어시스턴트 버전 이력
-   - 복합 PK: (assistant_id, version)
-   - CASCADE DELETE: 어시스턴트 삭제 시 버전도 삭제
+2.  **`AssistantVersion`**: Assistant version history.
+    -   Composite PK: (assistant_id, version).
+    -   CASCADE DELETE: Versions are deleted when the assistant is deleted.
 
-3. **`Thread`**: 대화 스레드 메타데이터
-   - `thread_id`: 클라이언트가 제공하는 ID
-   - `status`: idle/busy/interrupted
-   - `metadata_json`: 어시스턴트/그래프 정보 (JSONB)
-   - `user_id`: 소유자
+3.  **`Thread`**: Conversation thread metadata.
+    -   `thread_id`: ID provided by the client.
+    -   `status`: idle/busy/interrupted.
+    -   `metadata_json`: Assistant/graph information (JSONB).
+    -   `user_id`: Owner.
 
-4. **`Run`**: 실행 기록
-   - `run_id`: UUID (자동 생성)
-   - `status`: pending/running/completed/failed/cancelled/interrupted
-   - `input`, `output`: JSONB
-   - `config`, `context`: 실행 설정 (JSONB)
-   - FK: thread_id, assistant_id (CASCADE DELETE)
-   - 인덱스: thread_id, user_id, status, assistant_id, created_at
+4.  **`Run`**: Execution history.
+    -   `run_id`: UUID (auto-generated).
+    -   `status`: pending/running/completed/failed/cancelled/interrupted.
+    -   `input`, `output`: JSONB.
+    -   `config`, `context`: Execution settings (JSONB).
+    -   FK: thread_id, assistant_id (CASCADE DELETE).
+    -   Indexes: thread_id, user_id, status, assistant_id, created_at.
 
-5. **`RunEvent`**: SSE 이벤트 저장 (재생용)
-   - `id`: {run_id}_event_{seq}
-   - `seq`: 시퀀스 번호 (정렬용)
-   - `event`: 이벤트 타입
-   - `data`: 페이로드 (JSONB)
-   - 인덱스: run_id, (run_id, seq)
+5.  **`RunEvent`**: Stores SSE events (for playback).
+    -   `id`: {run_id}_event_{seq}.
+    -   `seq`: Sequence number (for ordering).
+    -   `event`: Event type.
+    -   `data`: Payload (JSONB).
+    -   Indexes: run_id, (run_id, seq).
 
-**세션 팩토리**:
+**Session Factory**:
 ```python
 async def get_session() -> AsyncIterator[AsyncSession]:
-    """FastAPI 의존성 주입용 세션 생성"""
+    """Session generator for FastAPI dependency injection."""
 ```
 
-**중요 사항**:
-- 실제 대화 상태는 LangGraph 체크포인터에 저장됨 (이 테이블들은 메타데이터만)
+**Important Note**:
+-   Actual conversation state is stored in the LangGraph checkpointer (these tables are for metadata only).
 - JSONB 컬럼은 복잡한 설정과 컨텍스트를 유연하게 저장
 - 모든 테이블에 user_id 인덱스 (멀티테넌트 격리)
 

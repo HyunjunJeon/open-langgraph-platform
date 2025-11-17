@@ -1,23 +1,18 @@
-"""어시스턴트 비즈니스 로직 서비스 계층
+"""Assistant Business Logic Service Layer
 
-이 모듈은 어시스턴트 관리와 관련된 모든 비즈니스 로직을 캡슐화합니다.
-계층화된 아키텍처 패턴을 따르며, api/assistants.py에서 코드를 추출하여
-관심사를 분리하고 유지보수성을 향상시켰습니다.
+This module encapsulates all business logic related to assistant management.
+It follows a layered architecture pattern, extracting code from api/assistants.py
+to separate concerns and improve maintainability.
 
-주요 책임:
-• 비즈니스 로직 및 유효성 검증
-• SQLAlchemy ORM을 통한 데이터베이스 작업
-• 그래프 스키마 추출 및 조작
-• 여러 컴포넌트 간 조율
+Key Responsibilities:
+- Business logic and validation
+- Database operations via SQLAlchemy ORM
+- Graph schema extraction and manipulation
+- Default assistant creation and management
+- Search and filtering logic
 
-이 서비스는 Open LangGraph의 첫 번째 서비스 계층 구현입니다.
-동일한 패턴이 다른 API(runs, threads, crons)에도 적용될 예정입니다.
-
-주요 구성 요소:
-• AssistantService - 어시스턴트 CRUD 및 버전 관리
-• to_pydantic() - SQLAlchemy ORM → Pydantic 모델 변환
-• _extract_graph_schemas() - LangGraph 스키마 추출
-• get_assistant_service() - FastAPI 의존성 주입 헬퍼
+This service acts as an intermediary between the API layer and the data layer,
+ensuring that all assistant-related operations are handled consistently.
 """
 
 import uuid
@@ -61,7 +56,7 @@ def to_pydantic(row: AssistantORM) -> Assistant:
     if hasattr(row, "user_id") and isinstance(row.user_id, uuid.UUID):
         row.user_id = str(row.user_id)
 
-    # Pydantic의 내장 ORM 변환 기능 사용 (from_attributes=True)
+    # Use Pydantic's built-in ORM conversion feature (from_attributes=True)
     return Assistant.model_validate(row, from_attributes=True)
 
 
@@ -113,7 +108,7 @@ def _get_configurable_jsonschema(graph: CompiledGraph) -> dict[str, Any]:
     """
     from pydantic import TypeAdapter
 
-    # LangGraph 내부 전용 설정 필드 (사용자에게 노출하지 않음)
+    # LangGraph internal-only configuration fields (not exposed to the user)
     EXCLUDED_CONFIG_SCHEMA = {"__pregel_resuming", "__pregel_checkpoint_id"}
 
     config_schema = graph.config_schema()
@@ -246,10 +241,10 @@ class AssistantService:
             HTTPException(400): config와 context를 동시에 지정한 경우
             HTTPException(409): 동일한 어시스턴트가 이미 존재 (if_exists="error")
         """
-        # LangGraph 서비스에서 사용 가능한 그래프 목록 조회
+        # Get the list of available graphs from the LangGraph service
         available_graphs = self.langgraph_service.list_graphs()
 
-        # 주요 식별자로 graph_id 사용
+        # Use graph_id as the main identifier
         graph_id = request.graph_id
 
         if graph_id not in available_graphs:
@@ -258,7 +253,7 @@ class AssistantService:
                 f"Graph '{graph_id}' not found in open_langgraph.json. Available: {list(available_graphs.keys())}",
             )
 
-        # 그래프를 실제로 로드할 수 있는지 검증
+        # Verify that the graph can actually be loaded
         try:
             await self.langgraph_service.get_graph(graph_id)
         except Exception as e:
@@ -269,8 +264,8 @@ class AssistantService:
             dict(request.context) if isinstance(request.context, dict) else None
         )
 
-        # LangGraph 0.6.0+에서는 context가 configurable의 대체품
-        # 둘 다 지정하면 충돌 방지
+        # In LangGraph 0.6.0+, context is a replacement for configurable
+        # Prevent conflicts if both are specified
         configurable_section = config.get("configurable")
         if isinstance(configurable_section, dict) and context_dict:
             raise HTTPException(
@@ -278,19 +273,19 @@ class AssistantService:
                 detail="Cannot specify both configurable and context. Prefer setting context alone. Context was introduced in LangGraph 0.6.0 and is the long term planned replacement for configurable.",
             )
 
-        # config와 context를 서로 동기화하여 일관성 유지
+        # Synchronize config and context with each other to maintain consistency
         if isinstance(configurable_section, dict):
             context_dict = configurable_section
         elif context_dict is not None:
             config["configurable"] = context_dict
 
-        # assistant_id가 제공되지 않으면 자동 생성
+        # If assistant_id is not provided, generate it automatically
         assistant_id = request.assistant_id or str(uuid4())
 
-        # name이 제공되지 않으면 기본 이름 생성
+        # If name is not provided, generate a default name
         name = request.name or f"Assistant for {graph_id}"
 
-        # 동일한 사용자, 그래프, 설정 조합이 이미 존재하는지 확인
+        # Check if a combination of the same user, graph, and settings already exists
         existing_stmt = select(AssistantORM).where(
             AssistantORM.user_id == user_identity,
             or_(
@@ -302,12 +297,12 @@ class AssistantService:
 
         if existing:
             if request.if_exists == "do_nothing":
-                # 중복 시 기존 레코드 반환 (에러 없음)
+                # If duplicate, return the existing record (no error)
                 return to_pydantic(existing)
-            else:  # error (기본값)
+            else:  # error (default)
                 raise HTTPException(409, f"Assistant '{assistant_id}' already exists")
 
-        # 어시스턴트 레코드 생성
+        # Create assistant record
         metadata_dict = dict(request.metadata) if isinstance(request.metadata, dict) else {}
 
         assistant_orm = AssistantORM(
@@ -326,7 +321,7 @@ class AssistantService:
         await self.session.commit()
         await self.session.refresh(assistant_orm)
 
-        # 초기 버전(버전 1) 이력 레코드 생성
+        # Create initial version (version 1) history record
         assistant_version_orm = AssistantVersionORM(
             assistant_id=assistant_id,
             version=1,
@@ -383,17 +378,17 @@ class AssistantService:
         # 사용자의 어시스턴트를 기반으로 시작
         stmt = select(AssistantORM).where(AssistantORM.user_id == user_identity)
 
-        # 필터 적용
+        # Apply filters
         if request.name:
-            # 부분 일치 검색 (대소문자 무시)
+            # Partial match search (case-insensitive)
             stmt = stmt.where(AssistantORM.name.ilike(f"%{request.name}%"))
 
         if request.description:
-            # 부분 일치 검색 (대소문자 무시)
+            # Partial match search (case-insensitive)
             stmt = stmt.where(AssistantORM.description.ilike(f"%{request.description}%"))
 
         if request.graph_id:
-            # 그래프 ID 정확히 일치
+            # Exact match for graph ID
             stmt = stmt.where(AssistantORM.graph_id == request.graph_id)
 
         if request.metadata:
@@ -403,7 +398,7 @@ class AssistantService:
             if isinstance(metadata_filter, dict):
                 stmt = stmt.where(AssistantORM.metadata_dict.op("@>")(metadata_filter))
 
-        # 페이지네이션 적용
+        # Apply pagination
         offset = request.offset or 0
         limit = request.limit or 20
         stmt = stmt.offset(offset).limit(limit)
@@ -428,7 +423,7 @@ class AssistantService:
         """
         stmt = select(func.count()).where(AssistantORM.user_id == user_identity)
 
-        # search_assistants()와 동일한 필터 적용
+        # Apply the same filters as search_assistants()
         if request.name:
             stmt = stmt.where(AssistantORM.name.ilike(f"%{request.name}%"))
 
@@ -467,7 +462,7 @@ class AssistantService:
         stmt = select(AssistantORM).where(
             AssistantORM.assistant_id == assistant_id,
             or_(
-                # 사용자 소유 또는 시스템 제공 어시스턴트
+                # User-owned or system-provided assistant
                 AssistantORM.user_id == user_identity,
                 AssistantORM.user_id == "system",
             ),
@@ -519,7 +514,7 @@ class AssistantService:
                 detail="Cannot specify both configurable and context. Use only one.",
             )
 
-        # config와 context를 서로 동기화하여 일관성 유지
+        # Synchronize config and context with each other to maintain consistency
         if isinstance(configurable_section, dict):
             context_dict = configurable_section
         elif context_dict is not None:
@@ -534,14 +529,14 @@ class AssistantService:
             raise HTTPException(404, f"Assistant '{assistant_id}' not found")
 
         now = datetime.now(UTC)
-        # 최대 버전 번호 조회
+        # Get the maximum version number
         version_stmt = select(func.max(AssistantVersionORM.version)).where(
             AssistantVersionORM.assistant_id == assistant_id
         )
         max_version = await self.session.scalar(version_stmt)
         new_version = (max_version or 1) + 1 if max_version is not None else 1
 
-        # 새로운 버전 정보 구성
+        # Configure new version information
         new_version_details = {
             "assistant_id": assistant_id,
             "version": new_version,
@@ -554,12 +549,12 @@ class AssistantService:
             "metadata_dict": metadata_dict,
         }
 
-        # 새로운 버전 이력 레코드 생성
+        # Create new version history record
         assistant_version_orm = AssistantVersionORM(**new_version_details)
         self.session.add(assistant_version_orm)
         await self.session.commit()
 
-        # 어시스턴트 메인 레코드 업데이트
+        # Update the main assistant record
         assistant_update = (
             update(AssistantORM)
             .where(
@@ -608,7 +603,7 @@ class AssistantService:
         if not assistant:
             raise HTTPException(404, f"Assistant '{assistant_id}' not found")
 
-        # CASCADE DELETE로 버전 이력, 실행, 이벤트도 함께 삭제됨
+        # Version history, runs, and events are also deleted together with CASCADE DELETE
         await self.session.delete(assistant)
         await self.session.commit()
 
@@ -644,7 +639,7 @@ class AssistantService:
         if not assistant:
             raise HTTPException(404, f"Assistant '{assistant_id}' not found")
 
-        # 요청된 버전 조회
+        # Get the requested version
         version_stmt = select(AssistantVersionORM).where(
             AssistantVersionORM.assistant_id == assistant_id,
             AssistantVersionORM.version == version,
@@ -653,7 +648,7 @@ class AssistantService:
         if not assistant_version:
             raise HTTPException(404, f"Version '{version}' for Assistant '{assistant_id}' not found")
 
-        # 어시스턴트를 해당 버전의 내용으로 업데이트
+        # Update the assistant with the content of that version
         assistant_update = (
             update(AssistantORM)
             .where(
@@ -704,7 +699,7 @@ class AssistantService:
         if not assistant:
             raise HTTPException(404, f"Assistant '{assistant_id}' not found")
 
-        # 모든 버전을 최신순으로 조회
+        # Get all versions in descending order
         versions_stmt = (
             select(AssistantVersionORM)
             .where(AssistantVersionORM.assistant_id == assistant_id)
@@ -716,7 +711,7 @@ class AssistantService:
         if not versions:
             raise HTTPException(404, f"No versions found for Assistant '{assistant_id}'")
 
-        # AssistantVersionORM → Pydantic Assistant 변환
+        # Convert AssistantVersionORM → Pydantic Assistant
         version_list = []
         for v in versions:
             version_list.append(
@@ -819,16 +814,16 @@ class AssistantService:
         try:
             graph = await self.langgraph_service.get_graph(assistant.graph_id)
 
-            # xray가 정수인 경우 (boolean이 아님) 양수 검증
+            # If xray is an integer (not a boolean), verify it is positive
             if isinstance(xray, int) and not isinstance(xray, bool) and xray <= 0:
                 raise HTTPException(422, detail="Invalid xray value")
 
             try:
-                # LangGraph의 aget_graph()로 시각화 가능한 그래프 구조 추출
+                # Extract visualizable graph structure with LangGraph's aget_graph()
                 drawable_graph = await graph.aget_graph(xray=xray)
                 json_graph = drawable_graph.to_json()
 
-                # 노드 데이터에서 불필요한 id 필드 제거
+                # Remove unnecessary id field from node data
                 for node in json_graph.get("nodes", []):
                     if (data := node.get("data")) and isinstance(data, dict):
                         data.pop("id", None)
@@ -884,7 +879,7 @@ class AssistantService:
             )
 
             try:
-                # 서브그래프 순회하며 각각의 스키마 추출
+                # Traverse subgraphs and extract their schemas
                 subgraphs = {
                     ns: _extract_graph_schemas(cast("CompiledGraph", subgraph))
                     async for ns, subgraph in graph.aget_subgraphs(namespace=namespace, recurse=recurse)

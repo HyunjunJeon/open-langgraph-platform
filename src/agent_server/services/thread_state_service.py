@@ -1,13 +1,13 @@
-"""스레드 상태 변환 서비스
+"""Thread State Conversion Service
 
-이 모듈은 LangGraph 체크포인터의 스냅샷을 Agent Protocol의 ThreadState 형식으로 변환합니다.
-LangGraph의 상태 스냅샷을 클라이언트 친화적인 형식으로 제공하여 스레드 상태 조회를 지원합니다.
+This module converts LangGraph checkpointer snapshots into the Agent Protocol's ThreadState format.
+It supports thread state retrieval by providing a client-friendly format for LangGraph's state snapshots.
 
-주요 구성 요소:
-• ThreadStateService - 스냅샷 → ThreadState 변환 서비스
-• LangGraphSerializer - 태스크 및 인터럽트 직렬화
+Main components:
+• ThreadStateService - Snapshot → ThreadState conversion service
+• LangGraphSerializer - Task and interrupt serialization
 
-사용 예:
+Usage example:
     from services.thread_state_service import ThreadStateService
 
     service = ThreadStateService()
@@ -25,71 +25,71 @@ logger = logging.getLogger(__name__)
 
 
 class ThreadStateService:
-    """LangGraph 스냅샷을 ThreadState 객체로 변환하는 서비스
+    """Service to convert LangGraph snapshots to ThreadState objects
 
-    이 클래스는 LangGraph 체크포인터의 스냅샷을 Agent Protocol의 ThreadState로 변환합니다.
-    스냅샷에는 그래프 실행 상태, 다음 실행할 노드, 태스크, 인터럽트 등이 포함됩니다.
+    This class transforms a LangGraph checkpointer snapshot into the Agent Protocol's ThreadState.
+    The snapshot contains the graph execution state, the next node to execute, tasks, interrupts, etc.
 
-    주요 기능:
-    - 단일/다중 스냅샷을 ThreadState로 변환
-    - 체크포인트 메타데이터 추출 및 변환
-    - 태스크 및 인터럽트 직렬화
-    - 타임스탬프 파싱 및 정규화
+    Key features:
+    - Converts single/multiple snapshots to ThreadState
+    - Extracts and transforms checkpoint metadata
+    - Serializes tasks and interrupts
+    - Parses and normalizes timestamps
 
-    사용 패턴:
-    - 싱글톤 인스턴스로 사용 가능
-    - LangGraphSerializer와 결합하여 상태 변환
+    Usage pattern:
+    - Can be used as a singleton instance
+    - Combines with LangGraphSerializer for state conversion
     """
 
     def __init__(self) -> None:
-        # LangGraph 전용 직렬화기 (태스크, 인터럽트 변환용)
+        # LangGraph-specific serializer (for converting tasks, interrupts)
         self.serializer = LangGraphSerializer()
 
     def convert_snapshot_to_thread_state(self, snapshot: Any, thread_id: str) -> ThreadState:
-        """LangGraph 스냅샷을 ThreadState 형식으로 변환
+        """Convert a LangGraph snapshot to ThreadState format
 
-        이 메서드는 LangGraph의 StateSnapshot을 Agent Protocol의 ThreadState로 변환합니다.
-        스냅샷에서 상태 값, 다음 실행 노드, 메타데이터, 체크포인트 정보를 추출하여
-        클라이언트가 이해할 수 있는 형식으로 제공합니다.
+        This method transforms a LangGraph StateSnapshot into the Agent Protocol's ThreadState.
+        It extracts state values, the next execution node, metadata, and checkpoint information from the snapshot
+        to provide it in a format that clients can understand.
 
-        변환 과정:
-        1. 기본 값 추출: values, next, metadata, created_at
-        2. 태스크/인터럽트: serializer로 직렬화
-        3. 체크포인트 객체 생성: current, parent
-        4. 하위 호환성: checkpoint_id 추출
+        Conversion process:
+        1. Extract base values: values, next, metadata, created_at
+        2. Tasks/Interrupts: Serialize with the serializer
+        3. Create checkpoint objects: current, parent
+        4. Backward compatibility: Extract checkpoint_id
 
         Args:
-            snapshot (Any): LangGraph StateSnapshot 객체
-            thread_id (str): 스레드 고유 식별자
+            snapshot (Any): LangGraph StateSnapshot object
+            thread_id (str): Unique thread identifier
 
         Returns:
-            ThreadState: Agent Protocol 형식의 스레드 상태
+            ThreadState: The thread state in Agent Protocol format
 
         Raises:
-            Exception: 스냅샷 변환 중 오류 발생 시
+            Exception: If an error occurs during snapshot conversion
 
-        참고:
-            - 스냅샷은 LangGraph checkpointer.aget_tuple() 등에서 반환
-            - ThreadState는 GET /threads/{thread_id}/state API에서 사용
+        Note:
+            - The snapshot is returned from LangGraph's checkpointer.aget_tuple(), etc.
+            - ThreadState is used in the GET /threads/{thread_id}/state API
         """
         try:
-            # 기본 값 추출 (그래프 상태, 다음 노드, 메타데이터 등)
+            # Extract base values (graph state, next node, metadata, etc.)
             values = getattr(snapshot, "values", {})
             next_nodes = getattr(snapshot, "next", []) or []
             metadata = getattr(snapshot, "metadata", {}) or {}
             created_at = self._extract_created_at(snapshot)
 
-            # 태스크 및 인터럽트를 직렬화기로 추출 (클라이언트 친화적 형식으로 변환)
+            # Extract tasks and interrupts with the serializer (convert to client-friendly format)
             tasks = self.serializer.extract_tasks_from_snapshot(snapshot)
             interrupts = self.serializer.extract_interrupts_from_snapshot(snapshot)
 
-            # 체크포인트 객체 생성 (현재 상태와 부모 상태)
+            # Create checkpoint objects (current state and parent state)
             current_checkpoint = self._create_checkpoint(snapshot.config, thread_id)
             parent_checkpoint = (
                 self._create_checkpoint(snapshot.parent_config, thread_id) if snapshot.parent_config else None
             )
 
-            # 하위 호환성을 위한 체크포인트 ID 추출 (문자열 형식)
+            # Extract checkpoint ID for backward compatibility (string format)
             checkpoint_id = self._extract_checkpoint_id(snapshot.config)
             parent_checkpoint_id = (
                 self._extract_checkpoint_id(snapshot.parent_config) if snapshot.parent_config else None
@@ -116,26 +116,26 @@ class ThreadStateService:
             raise
 
     def convert_snapshots_to_thread_states(self, snapshots: list[Any], thread_id: str) -> list[ThreadState]:
-        """여러 스냅샷을 ThreadState 객체 목록으로 변환
+        """Convert multiple snapshots to a list of ThreadState objects
 
-        이 메서드는 체크포인트 히스토리(여러 시점의 스냅샷)를 ThreadState 목록으로 변환합니다.
-        각 스냅샷을 개별적으로 변환하며, 일부 스냅샷 변환에 실패해도 나머지는 계속 처리합니다.
+        This method transforms a checkpoint history (snapshots from multiple points in time) into a list of ThreadStates.
+        It converts each snapshot individually and continues processing the rest even if some fail.
 
-        사용 사례:
-        - GET /threads/{thread_id}/history - 전체 실행 히스토리 조회
-        - 시간 역순 체크포인트 목록 제공
+        Use cases:
+        - GET /threads/{thread_id}/history - Retrieve the full execution history
+        - Provide a list of checkpoints in reverse chronological order
 
         Args:
-            snapshots (list[Any]): LangGraph 스냅샷 목록
-            thread_id (str): 스레드 고유 식별자
+            snapshots (list[Any]): A list of LangGraph snapshots
+            thread_id (str): Unique thread identifier
 
         Returns:
-            list[ThreadState]: 변환된 ThreadState 객체 목록
+            list[ThreadState]: A list of converted ThreadState objects
 
-        참고:
-            - 개별 스냅샷 변환 실패는 로그에 기록하고 스킵
-            - 배치 처리 중 일부 실패가 전체를 중단하지 않음
-            - 빈 리스트 반환 가능 (모든 변환 실패 시)
+        Note:
+            - Individual snapshot conversion failures are logged and skipped
+            - Partial failures during batch processing do not stop the entire process
+            - Can return an empty list (if all conversions fail)
         """
         thread_states = []
 
@@ -147,64 +147,64 @@ class ThreadStateService:
                 logger.error(
                     f"Failed to convert snapshot in batch: {e} (thread_id={thread_id}, snapshot_index={i})"
                 )
-                # 개별 스냅샷 실패 시 전체 배치를 중단하지 않고 계속 진행
+                # Continue processing without stopping the entire batch on individual snapshot failure
                 continue
 
         return thread_states
 
     def _extract_created_at(self, snapshot: Any) -> datetime | None:
-        """스냅샷에서 생성 타임스탬프 추출 및 파싱
+        """Extract and parse the creation timestamp from a snapshot
 
-        이 메서드는 스냅샷의 created_at 필드를 datetime 객체로 변환합니다.
-        문자열(ISO 8601) 또는 datetime 객체 형식을 모두 처리합니다.
+        This method converts the created_at field of a snapshot to a datetime object.
+        It handles both string (ISO 8601) and datetime object formats.
 
         Args:
-            snapshot (Any): LangGraph StateSnapshot 객체
+            snapshot (Any): LangGraph StateSnapshot object
 
         Returns:
-            datetime | None: 파싱된 datetime 객체 또는 None
+            datetime | None: The parsed datetime object or None
 
-        참고:
-            - ISO 8601 형식 지원: "2025-10-27T12:00:00Z"
-            - Z 접미사는 +00:00으로 변환 (UTC)
-            - 파싱 실패 시 경고 로그 출력 후 None 반환
+        Note:
+            - Supports ISO 8601 format: "2025-10-27T12:00:00Z"
+            - Converts Z suffix to +00:00 (UTC)
+            - Logs a warning and returns None on parsing failure
         """
         created_at = getattr(snapshot, "created_at", None)
         if isinstance(created_at, str):
             try:
-                # ISO 8601 형식 파싱 (Z → +00:00 변환)
+                # Parse ISO 8601 format (convert Z → +00:00)
                 return datetime.fromisoformat(created_at.replace("Z", "+00:00"))
             except ValueError:
                 logger.warning(f"Invalid created_at format: {created_at}")
                 return None
         elif isinstance(created_at, datetime):
-            # 이미 datetime 객체인 경우 그대로 반환
+            # Return as is if already a datetime object
             return created_at
         return None
 
     def _create_checkpoint(self, config: Any, thread_id: str) -> ThreadCheckpoint:
-        """LangGraph 설정에서 ThreadCheckpoint 객체 생성
+        """Create a ThreadCheckpoint object from a LangGraph config
 
-        이 메서드는 LangGraph의 RunnableConfig에서 체크포인트 메타데이터를 추출하여
-        Agent Protocol의 ThreadCheckpoint 객체를 생성합니다.
+        This method extracts checkpoint metadata from a LangGraph RunnableConfig
+        to create an Agent Protocol ThreadCheckpoint object.
 
         Args:
-            config (Any): LangGraph RunnableConfig 딕셔너리
-            thread_id (str): 스레드 고유 식별자
+            config (Any): LangGraph RunnableConfig dictionary
+            thread_id (str): Unique thread identifier
 
         Returns:
-            ThreadCheckpoint: 체크포인트 메타데이터 객체
+            ThreadCheckpoint: The checkpoint metadata object
 
-        참고:
-            - config.configurable.checkpoint_id: 체크포인트 고유 ID
-            - config.configurable.checkpoint_ns: 체크포인트 네임스페이스 (subgraph용)
-            - config가 없으면 빈 체크포인트 반환
+        Note:
+            - config.configurable.checkpoint_id: Unique checkpoint ID
+            - config.configurable.checkpoint_ns: Checkpoint namespace (for subgraphs)
+            - Returns an empty checkpoint if config is not present
         """
         if not config or not isinstance(config, dict):
-            # 설정이 없으면 빈 체크포인트 반환
+            # Return an empty checkpoint if config is not present
             return ThreadCheckpoint(checkpoint_id=None, thread_id=thread_id, checkpoint_ns="")
 
-        # configurable 섹션에서 체크포인트 정보 추출
+        # Extract checkpoint information from the configurable section
         configurable = config.get("configurable", {})
         checkpoint_id = configurable.get("checkpoint_id")
         checkpoint_ns = configurable.get("checkpoint_ns", "")
@@ -216,25 +216,25 @@ class ThreadStateService:
         )
 
     def _extract_checkpoint_id(self, config: Any) -> str | None:
-        """설정에서 체크포인트 ID를 문자열로 추출 (하위 호환성)
+        """Extract the checkpoint ID as a string from the config (for backward compatibility)
 
-        이 메서드는 이전 API 버전과의 호환성을 위해 체크포인트 ID를 문자열로 반환합니다.
-        ThreadCheckpoint 객체 대신 단순 문자열 ID를 사용하는 레거시 클라이언트를 지원합니다.
+        This method returns the checkpoint ID as a string for compatibility with previous API versions.
+        It supports legacy clients that use a simple string ID instead of a ThreadCheckpoint object.
 
         Args:
-            config (Any): LangGraph RunnableConfig 딕셔너리
+            config (Any): LangGraph RunnableConfig dictionary
 
         Returns:
-            str | None: 체크포인트 ID 문자열 또는 None
+            str | None: The checkpoint ID string or None
 
-        참고:
-            - 신규 코드는 _create_checkpoint()로 ThreadCheckpoint 객체 사용 권장
-            - 이 메서드는 하위 호환성 유지 목적
+        Note:
+            - New code is recommended to use _create_checkpoint() for the ThreadCheckpoint object
+            - This method is for maintaining backward compatibility
         """
         if not config or not isinstance(config, dict):
             return None
 
         configurable = config.get("configurable", {})
         checkpoint_id = configurable.get("checkpoint_id")
-        # 체크포인트 ID를 문자열로 변환 (있는 경우)
+        # Convert checkpoint ID to string (if it exists)
         return str(checkpoint_id) if checkpoint_id is not None else None

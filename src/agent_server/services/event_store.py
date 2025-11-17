@@ -37,31 +37,31 @@ from ..core.sse import SSEEvent
 
 
 class EventStore:
-    """PostgreSQL 기반 SSE 이벤트 저장소
+    """PostgreSQL-based SSE event store
 
-    이 클래스는 실행(run) 중 발생한 모든 SSE 이벤트를 PostgreSQL에 저장하고,
-    재연결 시 특정 시점 이후의 이벤트를 재생할 수 있는 기능을 제공합니다.
-    또한 오래된 이벤트를 주기적으로 정리하는 백그라운드 작업을 관리합니다.
+    This class stores all SSE events that occur during a run in PostgreSQL,
+    and provides functionality to replay events from a specific point in time upon reconnection.
+    It also manages a background task to periodically clean up old events.
 
-    주요 기능:
-    - 이벤트 저장: store_event()로 SSE 이벤트를 시퀀스 번호와 함께 저장
-    - 이벤트 재생: get_events_since()로 특정 시점 이후 이벤트 조회
-    - 자동 정리: 1시간 이상 된 이벤트를 300초마다 자동 삭제
-    - 실행 정보: get_run_info()로 이벤트 카운트, 마지막 이벤트 조회
+    Key features:
+    - Event storage: Stores SSE events with sequence numbers using store_event()
+    - Event replay: Retrieves events after a specific point using get_events_since()
+    - Automatic cleanup: Automatically deletes events older than 1 hour every 300 seconds
+    - Run information: Retrieves event count and last event for a run using get_run_info()
 
-    데이터베이스 스키마:
-    - 테이블: run_events
-    - 주요 컬럼: id, run_id, seq, event, data (JSONB), created_at
-    - 인덱스: run_id, (run_id, seq) 복합 인덱스
+    Database schema:
+    - Table: run_events
+    - Key columns: id, run_id, seq, event, data (JSONB), created_at
+    - Indexes: run_id, composite index on (run_id, seq)
 
-    정리 정책:
-    - 정리 주기: 300초 (5분)
-    - 보존 기간: 1시간
-    - 백그라운드 작업: asyncio.Task로 실행
+    Cleanup policy:
+    - Cleanup interval: 300 seconds (5 minutes)
+    - Retention period: 1 hour
+    - Background task: Runs as an asyncio.Task
 
-    사용 패턴:
-    - 싱글톤 인스턴스: event_store
-    - lifespan에서 start_cleanup_task() 호출하여 정리 작업 시작
+    Usage pattern:
+    - Singleton instance: event_store
+    - Call start_cleanup_task() from lifespan to start the cleanup task
     """
 
     CLEANUP_INTERVAL = 300  # 초 단위 (5분)
@@ -70,35 +70,35 @@ class EventStore:
         self._cleanup_task: asyncio.Task | None = None
 
     async def start_cleanup_task(self) -> None:
-        """백그라운드 정리 작업 시작
+        """Start the background cleanup task
 
-        이 메서드는 오래된 이벤트를 주기적으로 삭제하는 백그라운드 작업을 시작합니다.
-        작업이 이미 실행 중이면 새로운 작업을 생성하지 않습니다.
+        This method starts a background task that periodically deletes old events.
+        It does not create a new task if one is already running.
 
-        동작:
-        - 정리 작업이 없거나 완료된 경우에만 새 작업 생성
-        - asyncio.create_task()로 백그라운드에서 _cleanup_loop() 실행
-        - FastAPI lifespan 시작 시 호출됨
+        Behavior:
+        - Creates a new task only if the cleanup task is not present or has finished
+        - Runs _cleanup_loop() in the background using asyncio.create_task()
+        - Called on FastAPI lifespan startup
 
-        참고:
-            이 메서드는 FastAPI의 lifespan 이벤트에서 자동으로 호출됩니다.
+        Note:
+            This method is automatically called from FastAPI's lifespan event.
         """
         if self._cleanup_task is None or self._cleanup_task.done():
             self._cleanup_task = asyncio.create_task(self._cleanup_loop())
 
     async def stop_cleanup_task(self) -> None:
-        """백그라운드 정리 작업 중지
+        """Stop the background cleanup task
 
-        이 메서드는 실행 중인 정리 작업을 안전하게 취소하고 종료를 기다립니다.
-        CancelledError는 자동으로 무시됩니다.
+        This method safely cancels the running cleanup task and waits for it to terminate.
+        CancelledError is automatically ignored.
 
-        동작:
-        1. 작업이 실행 중인지 확인
-        2. 작업 취소 요청 (task.cancel())
-        3. 취소 완료까지 대기 (CancelledError 무시)
+        Behavior:
+        1. Check if the task is running
+        2. Request task cancellation (task.cancel())
+        3. Wait for cancellation to complete (ignoring CancelledError)
 
-        참고:
-            이 메서드는 FastAPI의 lifespan 종료 시 자동으로 호출됩니다.
+        Note:
+            This method is automatically called on FastAPI lifespan shutdown.
         """
         if self._cleanup_task and not self._cleanup_task.done():
             self._cleanup_task.cancel()
@@ -106,29 +106,29 @@ class EventStore:
                 await self._cleanup_task
 
     async def store_event(self, run_id: str, event: SSEEvent) -> None:
-        """SSE 이벤트를 시퀀스 번호와 함께 PostgreSQL에 저장
+        """Store an SSE event with a sequence number in PostgreSQL
 
-        이 메서드는 SSE 이벤트를 run_events 테이블에 저장합니다.
-        이벤트 ID에서 시퀀스 번호를 추출하여 정렬 가능하도록 합니다.
+        This method saves an SSE event to the run_events table.
+        It extracts a sequence number from the event ID to make it sortable.
 
-        이벤트 ID 형식:
-        - 예상 형식: "{run_id}_event_{seq}"
-        - 예시: "abc123_event_0", "abc123_event_1"
-        - seq 추출 실패 시 기본값 0 사용
+        Event ID format:
+        - Expected format: "{run_id}_event_{seq}"
+        - Example: "abc123_event_0", "abc123_event_1"
+        - Uses a default of 0 if seq extraction fails
 
-        동작:
-        1. event.id에서 시퀀스 번호 추출
-        2. PostgreSQL 연결 획득
-        3. INSERT 쿼리 실행 (충돌 시 무시)
-        4. data는 JSONB 타입으로 저장
+        Behavior:
+        1. Extract sequence number from event.id
+        2. Acquire a PostgreSQL connection
+        3. Execute an INSERT query (ignoring conflicts)
+        4. Store data as JSONB type
 
         Args:
-            run_id (str): 실행 고유 식별자
-            event (SSEEvent): 저장할 SSE 이벤트 (id, event, data, timestamp)
+            run_id (str): Unique run identifier
+            event (SSEEvent): The SSE event to store (id, event, data, timestamp)
 
-        참고:
-            - ON CONFLICT DO NOTHING으로 중복 삽입 방지
-            - created_at은 DB에서 NOW()로 자동 설정
+        Note:
+            - Prevents duplicate insertions with ON CONFLICT DO NOTHING
+            - created_at is automatically set to NOW() by the DB
         """
         # 이벤트 ID에서 시퀀스 번호 추출 (형식: {run_id}_event_{seq})
         try:
@@ -157,26 +157,26 @@ class EventStore:
             )
 
     async def get_events_since(self, run_id: str, last_event_id: str) -> list[SSEEvent]:
-        """특정 이벤트 이후의 모든 이벤트 조회 (재연결 시 재생용)
+        """Retrieve all events after a specific event (for replay on reconnect)
 
-        이 메서드는 클라이언트가 재연결할 때 마지막으로 받은 이벤트 이후의
-        모든 이벤트를 시퀀스 순서대로 반환합니다.
+        This method returns all events in sequence order that occurred after
+        the last event a client received, for when they reconnect.
 
-        동작:
-        1. last_event_id에서 시퀀스 번호 추출
-        2. 해당 시퀀스보다 큰 모든 이벤트 조회
-        3. seq ASC로 정렬하여 순차 재생 보장
+        Behavior:
+        1. Extract sequence number from last_event_id
+        2. Query for all events with a greater sequence number
+        3. Order by seq ASC to ensure sequential replay
 
         Args:
-            run_id (str): 실행 고유 식별자
-            last_event_id (str): 마지막으로 받은 이벤트 ID (형식: "{run_id}_event_{seq}")
+            run_id (str): Unique run identifier
+            last_event_id (str): The ID of the last received event (format: "{run_id}_event_{seq}")
 
         Returns:
-            list[SSEEvent]: 시퀀스 순으로 정렬된 이벤트 목록
+            list[SSEEvent]: A list of events sorted by sequence
 
-        참고:
-            - last_event_id 파싱 실패 시 last_seq = -1 (모든 이벤트 반환)
-            - SSE Last-Event-ID 헤더와 함께 사용됨
+        Note:
+            - If last_event_id parsing fails, last_seq = -1 (returns all events)
+            - Used with the SSE Last-Event-ID header
         """
         # 마지막 이벤트 ID에서 시퀀스 번호 추출
         try:
@@ -201,20 +201,20 @@ class EventStore:
         return [SSEEvent(id=r.id, event=r.event, data=r.data, timestamp=r.created_at) for r in rows]
 
     async def get_all_events(self, run_id: str) -> list[SSEEvent]:
-        """특정 실행의 모든 이벤트 조회 (전체 재생용)
+        """Retrieve all events for a specific run (for full replay)
 
-        이 메서드는 특정 실행에 대한 모든 이벤트를 시퀀스 순서대로 반환합니다.
-        처음부터 전체 이벤트 스트림을 재생하거나 디버깅 시 사용됩니다.
+        This method returns all events for a specific run in sequence order.
+        It is used for debugging or replaying the entire event stream from the beginning.
 
         Args:
-            run_id (str): 실행 고유 식별자
+            run_id (str): Unique run identifier
 
         Returns:
-            list[SSEEvent]: 시퀀스 순으로 정렬된 모든 이벤트
+            list[SSEEvent]: All events sorted by sequence
 
-        참고:
-            - seq ASC 정렬로 발생 순서대로 반환
-            - 클라이언트가 Last-Event-ID 없이 연결할 때 사용됨
+        Note:
+            - Returns in order of occurrence by sorting by seq ASC
+            - Used when a client connects without a Last-Event-ID
         """
         engine = db_manager.get_engine()
         async with engine.begin() as conn:
@@ -233,17 +233,17 @@ class EventStore:
         return [SSEEvent(id=r.id, event=r.event, data=r.data, timestamp=r.created_at) for r in rows]
 
     async def cleanup_events(self, run_id: str) -> None:
-        """특정 실행의 모든 이벤트 삭제
+        """Delete all events for a specific run
 
-        이 메서드는 특정 실행에 대한 모든 저장된 이벤트를 데이터베이스에서 삭제합니다.
-        실행이 완료되거나 더 이상 재생이 필요 없을 때 수동으로 정리할 수 있습니다.
+        This method deletes all stored events for a specific run from the database.
+        It can be used to manually clean up when a run is complete or replay is no longer needed.
 
         Args:
-            run_id (str): 삭제할 실행 고유 식별자
+            run_id (str): The unique identifier of the run to delete
 
-        참고:
-            - 자동 정리는 _cleanup_old_runs()에서 시간 기반으로 처리됨
-            - 이 메서드는 수동 정리용 (실행 종료 후 즉시 삭제 등)
+        Note:
+            - Automatic cleanup is handled by _cleanup_old_runs() on a time basis
+            - This method is for manual cleanup (e.g., immediate deletion after run completion)
         """
         engine = db_manager.get_engine()
         async with engine.begin() as conn:
@@ -253,30 +253,30 @@ class EventStore:
             )
 
     async def get_run_info(self, run_id: str) -> dict | None:
-        """특정 실행의 이벤트 통계 정보 조회
+        """Retrieve event statistics for a specific run
 
-        이 메서드는 실행에 대한 이벤트 메타데이터를 반환합니다.
-        이벤트 카운트, 마지막 이벤트 ID 및 타임스탬프 등을 제공합니다.
+        This method returns event metadata for a run,
+        providing event count, last event ID, and timestamp.
 
-        동작:
-        1. MIN(seq), MAX(seq)로 첫/마지막 시퀀스 조회
-        2. 마지막 이벤트의 ID와 created_at 조회
-        3. 이벤트 개수 계산 (last_seq - first_seq + 1)
+        Behavior:
+        1. Query for the first/last sequence numbers (MIN(seq), MAX(seq))
+        2. Query for the ID and created_at of the last event
+        3. Calculate event count (last_seq - first_seq + 1)
 
         Args:
-            run_id (str): 실행 고유 식별자
+            run_id (str): Unique run identifier
 
         Returns:
-            dict | None: 이벤트 통계 정보 딕셔너리 또는 None (이벤트 없을 시)
-                - run_id: 실행 ID
-                - event_count: 총 이벤트 개수
-                - first_event_time: 첫 이벤트 시간 (현재는 None)
-                - last_event_time: 마지막 이벤트 생성 시간
-                - last_event_id: 마지막 이벤트 ID
+            dict | None: A dictionary of event statistics or None (if no events)
+                - run_id: Run ID
+                - event_count: Total number of events
+                - first_event_time: First event time (currently None)
+                - last_event_time: Creation time of the last event
+                - last_event_id: ID of the last event
 
-        참고:
-            - 이벤트가 없으면 None 반환
-            - 클라이언트 상태 동기화 및 디버깅에 유용
+        Note:
+            - Returns None if there are no events
+            - Useful for client state synchronization and debugging
         """
         engine = db_manager.get_engine()
         async with engine.begin() as conn:
@@ -317,23 +317,23 @@ class EventStore:
         }
 
     async def _cleanup_loop(self) -> None:
-        """정리 작업 백그라운드 루프 (내부 메서드)
+        """Background loop for the cleanup task (internal method)
 
-        이 메서드는 무한 루프를 실행하며 CLEANUP_INTERVAL(300초)마다
-        오래된 이벤트를 삭제하는 _cleanup_old_runs()를 호출합니다.
+        This method runs an infinite loop, calling _cleanup_old_runs()
+        to delete old events at each CLEANUP_INTERVAL (300 seconds).
 
-        동작:
-        1. CLEANUP_INTERVAL(300초) 대기
-        2. _cleanup_old_runs() 호출 (1시간 이상 된 이벤트 삭제)
-        3. 1번으로 돌아가서 반복
+        Behavior:
+        1. Wait for CLEANUP_INTERVAL (300 seconds)
+        2. Call _cleanup_old_runs() (deletes events older than 1 hour)
+        3. Go back to step 1 and repeat
 
-        예외 처리:
-        - CancelledError: 정상 종료 (stop_cleanup_task() 호출 시)
-        - Exception: 오류 로그 출력 후 계속 실행
+        Exception handling:
+        - CancelledError: Normal shutdown (when stop_cleanup_task() is called)
+        - Exception: Print an error log and continue running
 
-        참고:
-            - 이 메서드는 start_cleanup_task()에서 asyncio.Task로 실행됨
-            - 정리 실패 시에도 루프는 계속 실행 (서비스 안정성)
+        Note:
+            - This method is run as an asyncio.Task by start_cleanup_task()
+            - The loop continues to run even if cleanup fails (service stability)
         """
         while True:
             try:
@@ -345,19 +345,19 @@ class EventStore:
                 print(f"Error in event store cleanup: {e}")
 
     async def _cleanup_old_runs(self) -> None:
-        """1시간 이상 된 오래된 이벤트 삭제 (내부 메서드)
+        """Delete old events older than 1 hour (internal method)
 
-        이 메서드는 생성된 지 1시간 이상 경과한 모든 이벤트를 삭제합니다.
-        디스크 공간 절약 및 데이터베이스 성능 유지를 위해 주기적으로 호출됩니다.
+        This method deletes all events that were created more than 1 hour ago.
+        It is called periodically to save disk space and maintain database performance.
 
-        삭제 조건:
+        Deletion condition:
         - created_at < NOW() - INTERVAL '1 hour'
-        - 즉, 현재 시간 기준 1시간 이전에 생성된 모든 이벤트
+        - i.e., all events created more than 1 hour before the current time
 
-        참고:
-            - _cleanup_loop()에서 300초(5분)마다 호출됨
-            - 기본 보존 기간: 1시간
-            - PostgreSQL INTERVAL 문법 사용
+        Note:
+            - Called every 300 seconds (5 minutes) by _cleanup_loop()
+            - Default retention period: 1 hour
+            - Uses PostgreSQL INTERVAL syntax
         """
         engine = db_manager.get_engine()
         async with engine.begin() as conn:
@@ -365,39 +365,39 @@ class EventStore:
 
 
 # ---------------------------------------------------------------------------
-# 전역 이벤트 저장소 인스턴스
+# Global event store instance
 # ---------------------------------------------------------------------------
 
 event_store = EventStore()
 
 
 async def store_sse_event(run_id: str, event_id: str, event_type: str, data: dict) -> SSEEvent:
-    """SSE 이벤트를 직렬화하여 저장하는 헬퍼 함수
+    """Helper function to serialize and store an SSE event
 
-    이 함수는 SSE 이벤트 데이터를 JSONB 안전 형식으로 직렬화한 후
-    PostgreSQL에 저장합니다. 복잡한 Python 객체를 JSON으로 변환하며,
-    실패 시에도 실행을 중단하지 않도록 폴백 메커니즘을 제공합니다.
+    This function serializes SSE event data into a JSONB-safe format and then
+    stores it in PostgreSQL. It handles complex Python objects and provides
+    a fallback mechanism to prevent execution from stopping on failure.
 
-    동작 흐름:
-    1. GeneralSerializer로 복잡한 객체 직렬화 (datetime, UUID 등)
-    2. JSON 라운드트립으로 JSONB 호환성 보장
-    3. 직렬화 실패 시 문자열로 변환하여 저장 (폴백)
-    4. SSEEvent 객체 생성 (UTC 타임스탬프 포함)
-    5. event_store.store_event() 호출하여 DB 저장
+    Workflow:
+    1. Serialize complex objects (datetime, UUID, etc.) with GeneralSerializer
+    2. Ensure JSONB compatibility with a JSON roundtrip
+    3. On serialization failure, convert to string and store (fallback)
+    4. Create an SSEEvent object (with UTC timestamp)
+    5. Call event_store.store_event() to save to DB
 
     Args:
-        run_id (str): 실행 고유 식별자
-        event_id (str): 이벤트 ID (형식: "{run_id}_event_{seq}")
-        event_type (str): 이벤트 타입 ("values", "messages", "end" 등)
-        data (dict): 이벤트 페이로드 (복잡한 객체 포함 가능)
+        run_id (str): Unique run identifier
+        event_id (str): Event ID (format: "{run_id}_event_{seq}")
+        event_type (str): Event type ("values", "messages", "end", etc.)
+        data (dict): Event payload (may contain complex objects)
 
     Returns:
-        SSEEvent: 저장된 SSE 이벤트 객체
+        SSEEvent: The stored SSE event object
 
-    참고:
-        - GeneralSerializer는 datetime, UUID, Pydantic 모델 등을 처리
-        - 직렬화 실패 시 {"raw": str(data)}로 저장하여 실행 중단 방지
-        - streaming_service.py에서 주로 사용됨
+    Note:
+        - GeneralSerializer handles datetime, UUID, Pydantic models, etc.
+        - On serialization failure, saves as {"raw": str(data)} to prevent interruption
+        - Primarily used in streaming_service.py
     """
     serializer = GeneralSerializer()
 

@@ -1,29 +1,29 @@
-"""ReAct 패턴을 활용한 추론-실행 에이전트 그래프 정의
+"""Reasoning-Action Agent Graph Definition using the ReAct Pattern
 
-이 모듈은 LangGraph 기반의 ReAct(Reasoning and Action) 에이전트를 구현합니다.
-ReAct 패턴은 LLM이 추론(Reasoning)과 도구 실행(Action)을 반복하며 문제를 해결하는 방식입니다.
+This module implements a ReAct (Reasoning and Action) agent based on LangGraph.
+The ReAct pattern involves the LLM iteratively reasoning and executing tools to solve a problem.
 
-ReAct 패턴 동작 흐름:
-1. 사용자 질문 입력
-2. LLM이 추론하고 필요한 도구 선택
-3. 선택된 도구 실행
-4. 도구 실행 결과를 LLM에 전달
-5. 2-4 반복하며 최종 답변 도출
+ReAct Pattern Flow:
+1. User question is input.
+2. The LLM reasons and selects a necessary tool.
+3. The selected tool is executed.
+4. The tool execution result is passed to the LLM.
+5. Steps 2-4 are repeated to derive the final answer.
 
-주요 구성 요소:
-• call_model - LLM 호출 노드 (추론 및 도구 선택)
-• tools - 도구 실행 노드 (ToolNode)
-• route_model_output - 조건부 라우팅 함수 (계속 실행 or 종료)
-• graph - 컴파일된 StateGraph 인스턴스
+Main Components:
+• call_model - LLM call node (reasoning and tool selection)
+• tools - Tool execution node (ToolNode)
+• route_model_output - Conditional routing function (continue execution or end)
+• graph - Compiled StateGraph instance
 
-그래프 구조:
+Graph Structure:
     __start__ → call_model ⇄ tools
                      ↓
                  __end__
 
-사용 요구사항:
-- 도구 호출(tool calling)을 지원하는 채팅 모델 필요
-- Runtime[Context]를 통해 모델 설정 및 시스템 프롬프트 주입
+Requirements:
+- A chat model that supports tool calling.
+- Injection of model settings and system prompt via Runtime[Context].
 """
 
 from datetime import UTC, datetime
@@ -40,50 +40,50 @@ from react_agent.tools import TOOLS
 from react_agent.utils import load_chat_model
 
 # ---------------------------------------------------------------------------
-# 노드 함수: LLM 호출 및 추론
+# Node Function: LLM Call and Reasoning
 # ---------------------------------------------------------------------------
 
 
 async def call_model(
     state: State, runtime: Runtime[Context]
 ) -> dict[str, list[AIMessage]]:
-    """ReAct 에이전트의 핵심 LLM 호출 노드 - 추론 및 도구 선택 수행
+    """Core LLM call node for the ReAct agent - performs reasoning and tool selection.
 
-    이 함수는 ReAct 패턴의 "Reasoning(추론)" 단계를 담당합니다.
-    현재 대화 상태를 기반으로 LLM을 호출하여 다음 행동(도구 호출 또는 최종 답변)을 결정합니다.
+    This function is responsible for the "Reasoning" step in the ReAct pattern.
+    It calls the LLM based on the current conversation state to decide the next action (tool call or final answer).
 
-    동작 흐름:
-    1. Runtime Context에서 모델 정보 추출 및 도구 바인딩
-    2. 시스템 프롬프트 포맷팅 (현재 시간 주입)
-    3. LLM 호출 (시스템 메시지 + 대화 히스토리)
-    4. 응답 처리 (최대 스텝 도달 시 종료 처리)
-    5. 상태에 새 메시지 추가하여 반환
+    Flow:
+    1. Extract model information from the Runtime Context and bind tools.
+    2. Format the system prompt (injecting the current time).
+    3. Call the LLM (with system message + conversation history).
+    4. Process the response (handling termination if max steps are reached).
+    5. Return a new message to add to the state.
 
     Args:
-        state (State): 현재 대화 상태 (메시지 히스토리, 스텝 카운터 등 포함)
-        runtime (Runtime[Context]): 런타임 컨텍스트 (모델 설정, 시스템 프롬프트 포함)
+        state (State): The current conversation state (includes message history, step counter, etc.).
+        runtime (Runtime[Context]): The runtime context (includes model settings, system prompt).
 
     Returns:
-        dict[str, list[AIMessage]]: 상태 업데이트용 딕셔너리
-            - "messages": LLM의 응답 메시지 (도구 호출 정보 포함 가능)
+        dict[str, list[AIMessage]]: A dictionary for updating the state.
+            - "messages": The LLM's response message (may include tool call information).
 
-    참고:
-        - LLM이 도구 호출을 결정하면 response.tool_calls에 도구 정보가 포함됨
-        - 최대 스텝에 도달했는데 여전히 도구 호출을 시도하면 에러 메시지 반환
-        - bind_tools()를 통해 LLM이 사용 가능한 도구 목록을 인지하게 함
+    Note:
+        - If the LLM decides to call a tool, response.tool_calls will contain tool information.
+        - If the max steps are reached and it still tries to call a tool, an error message is returned.
+        - bind_tools() makes the LLM aware of the available tools.
     """
-    # 런타임 컨텍스트에서 모델 설정을 가져와 도구와 바인딩
-    # 모델이 어떤 도구를 사용할 수 있는지 알려줌 (도구 스키마 주입)
+    # Get model settings from the runtime context and bind them with tools.
+    # This tells the model which tools it can use (injects tool schema).
     model = load_chat_model(runtime.context.model).bind_tools(TOOLS)
 
-    # 시스템 프롬프트 포맷팅 - 현재 시간을 주입하여 에이전트가 시간 정보를 인지
-    # 시스템 프롬프트는 에이전트의 역할과 행동 방식을 정의함
+    # Format the system prompt - inject the current time to make the agent time-aware.
+    # The system prompt defines the agent's role and behavior.
     system_message = runtime.context.system_prompt.format(
         system_time=datetime.now(tz=UTC).isoformat()
     )
 
-    # LLM 호출 - 시스템 메시지와 대화 히스토리를 입력으로 전달
-    # LLM은 컨텍스트를 분석하고 다음 행동(도구 호출 or 답변)을 결정
+    # Call the LLM - pass the system message and conversation history as input.
+    # The LLM analyzes the context and decides the next action (tool call or answer).
     response = cast(
         "AIMessage",
         await model.ainvoke(
@@ -91,8 +91,8 @@ async def call_model(
         ),
     )
 
-    # 최대 스텝 도달 체크: 무한 루프 방지를 위한 안전 장치
-    # 마지막 스텝인데도 LLM이 여전히 도구를 호출하려 하면 강제 종료
+    # Check for max steps: a safety measure to prevent infinite loops.
+    # If the LLM still tries to call a tool on the last step, force termination.
     if state.is_last_step and response.tool_calls:
         return {
             "messages": [
@@ -103,105 +103,105 @@ async def call_model(
             ]
         }
 
-    # LLM 응답을 상태에 추가하여 반환
-    # 다음 노드(route_model_output)가 이 메시지를 기반으로 라우팅 결정
+    # Add the LLM response to the state and return it.
+    # The next node (route_model_output) will make a routing decision based on this message.
     return {"messages": [response]}
 
 
 # ---------------------------------------------------------------------------
-# 그래프 구성: StateGraph 빌더 초기화 및 노드 추가
+# Graph Configuration: Initialize StateGraph Builder and Add Nodes
 # ---------------------------------------------------------------------------
 
-# ReAct 에이전트 그래프 빌더 생성
-# - State: 그래프 실행 중 유지되는 상태 스키마 (메시지, 스텝 등)
-# - InputState: 사용자 입력 스키마 (초기 메시지만 포함)
-# - Context: 런타임 컨텍스트 스키마 (모델 설정, 시스템 프롬프트 등)
+# Create the ReAct agent graph builder.
+# - State: The schema of the state maintained during graph execution (messages, steps, etc.).
+# - InputState: The schema for user input (contains only the initial message).
+# - Context: The schema for the runtime context (model settings, system prompt, etc.).
 builder = StateGraph(State, input_schema=InputState, context_schema=Context)
 
-# 노드 1: call_model - LLM 호출 및 추론 노드
-# LLM이 대화 컨텍스트를 분석하고 다음 행동(도구 호출 or 답변) 결정
+# Node 1: call_model - The LLM call and reasoning node.
+# The LLM analyzes the conversation context and decides the next action (tool call or answer).
 builder.add_node(call_model)
 
-# 노드 2: tools - 도구 실행 노드 (LangGraph의 ToolNode 활용)
-# LLM이 선택한 도구를 실제로 실행하고 결과를 상태에 추가
-# ToolNode는 tool_calls를 자동으로 파싱하여 해당 도구를 호출함
+# Node 2: tools - The tool execution node (using LangGraph's ToolNode).
+# Actually executes the tool selected by the LLM and adds the result to the state.
+# ToolNode automatically parses tool_calls and calls the corresponding tool.
 builder.add_node("tools", ToolNode(TOOLS))
 
 # ---------------------------------------------------------------------------
-# 엣지 정의: 그래프의 실행 흐름 구성
+# Edge Definition: Configure the Graph's Execution Flow
 # ---------------------------------------------------------------------------
 
-# 진입점 설정: 그래프 시작 시 call_model 노드부터 실행
-# __start__는 LangGraph의 특수 노드로 그래프의 시작점을 의미
+# Set the entry point: The graph starts execution from the call_model node.
+# __start__ is a special node in LangGraph that signifies the graph's starting point.
 builder.add_edge("__start__", "call_model")
 
 
 def route_model_output(state: State) -> Literal["__end__", "tools"]:
-    """LLM 출력을 기반으로 다음 노드 결정 - ReAct 패턴의 조건부 라우팅
+    """Determines the next node based on the LLM output - conditional routing for the ReAct pattern.
 
-    이 함수는 ReAct 패턴의 핵심 분기 로직을 담당합니다.
-    LLM의 마지막 응답을 확인하여 도구 호출이 필요한지(Action) 또는 최종 답변인지(End) 판단합니다.
+    This function is responsible for the core branching logic of the ReAct pattern.
+    It checks the LLM's last response to determine if a tool call is needed (Action) or if it's a final answer (End).
 
-    라우팅 로직:
-    - 도구 호출 있음 → "tools" 노드로 이동 (도구 실행)
-    - 도구 호출 없음 → "__end__" 노드로 이동 (그래프 종료)
+    Routing Logic:
+    - Tool call present → Go to the "tools" node (execute tool).
+    - No tool call → Go to the "__end__" node (end graph).
 
     Args:
-        state (State): 현재 대화 상태 (메시지 히스토리 포함)
+        state (State): The current conversation state (includes message history).
 
     Returns:
-        Literal["__end__", "tools"]: 다음에 실행할 노드 이름
-            - "__end__": 그래프 종료 (최종 답변 완료)
-            - "tools": 도구 실행 노드로 이동
+        Literal["__end__", "tools"]: The name of the next node to execute.
+            - "__end__": End the graph (final answer is complete).
+            - "tools": Go to the tool execution node.
 
     Raises:
-        ValueError: 마지막 메시지가 AIMessage가 아닌 경우
-            (그래프 구조상 call_model 다음은 항상 AIMessage여야 함)
+        ValueError: If the last message is not an AIMessage
+            (in the graph structure, the node after call_model must always be an AIMessage).
 
-    참고:
-        - ReAct 패턴의 "Thought → Action → Observation" 사이클을 구현
-        - 도구 호출이 있으면 tools 노드에서 실행 후 다시 call_model로 복귀
-        - 도구 호출이 없으면 LLM이 최종 답변을 완성했다고 판단하여 종료
+    Note:
+        - Implements the "Thought → Action → Observation" cycle of the ReAct pattern.
+        - If a tool is called, it's executed in the tools node, and then it returns to call_model.
+        - If there's no tool call, it's assumed the LLM has completed the final answer, so it ends.
     """
-    # 상태에서 가장 최근 메시지(LLM 응답) 추출
+    # Extract the most recent message (LLM response) from the state.
     last_message = state.messages[-1]
 
-    # 타입 안전성 검증: call_model 노드 다음은 항상 AIMessage여야 함
+    # Type safety check: The node after call_model must always be an AIMessage.
     if not isinstance(last_message, AIMessage):
         raise ValueError(
             f"Expected AIMessage in output edges, but got {type(last_message).__name__}"
         )
 
-    # 도구 호출이 없으면 그래프 종료
-    # LLM이 최종 답변을 텍스트로만 반환했다는 의미 (더 이상 도구 실행 불필요)
+    # If there are no tool calls, end the graph.
+    # This means the LLM has returned only text as the final answer (no more tools needed).
     if not last_message.tool_calls:
         return "__end__"
 
-    # 도구 호출이 있으면 tools 노드로 이동하여 실행
-    # ReAct 패턴의 "Action" 단계 진입
+    # If there are tool calls, go to the tools node to execute them.
+    # Enter the "Action" step of the ReAct pattern.
     return "tools"
 
 
-# call_model → (조건부 분기) → __end__ or tools
-# call_model 노드 실행 후 route_model_output 함수로 다음 노드를 동적으로 결정
-# ReAct 패턴의 핵심: LLM 응답에 따라 도구 실행 or 종료를 선택
+# call_model → (conditional branch) → __end__ or tools
+# After the call_model node executes, the route_model_output function dynamically determines the next node.
+# The core of the ReAct pattern: choose to execute a tool or end based on the LLM's response.
 builder.add_conditional_edges(
     "call_model",
-    # call_model 완료 후 route_model_output 함수 실행하여 다음 노드 결정
-    # 반환값에 따라 "__end__" 또는 "tools" 노드로 분기
+    # After call_model completes, execute route_model_output to determine the next node.
+    # Branches to the "__end__" or "tools" node based on the return value.
     route_model_output,
 )
 
-# tools → call_model (고정 엣지)
-# 도구 실행 완료 후 항상 call_model로 복귀하여 결과 분석
-# ReAct 사이클 구현: Action(도구 실행) → Observation(결과) → Thought(다시 LLM 추론)
+# tools → call_model (fixed edge)
+# After tool execution is complete, always return to call_model to analyze the results.
+# Implements the ReAct cycle: Action (tool execution) → Observation (result) → Thought (LLM reasoning again).
 builder.add_edge("tools", "call_model")
 
 # ---------------------------------------------------------------------------
-# 그래프 컴파일: 실행 가능한 그래프로 변환
+# Graph Compilation: Convert to an Executable Graph
 # ---------------------------------------------------------------------------
 
-# StateGraph 빌더를 실행 가능한 CompiledGraph로 컴파일
-# name="ReAct Agent"는 LangSmith 트레이싱 등에서 식별자로 사용됨
-# 컴파일 후 graph는 open_langgraph.json에서 참조되어 HTTP API로 노출됨
+# Compile the StateGraph builder into an executable CompiledGraph.
+# name="ReAct Agent" is used as an identifier in LangSmith tracing, etc.
+# After compilation, the graph is referenced in open_langgraph.json to be exposed via an HTTP API.
 graph = builder.compile(name="ReAct Agent")

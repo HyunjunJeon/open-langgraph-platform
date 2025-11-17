@@ -1,26 +1,26 @@
-"""Human-in-the-Loop 기능을 갖춘 사용자 정의 ReAct 에이전트
+"""Custom ReAct agent with Human-in-the-Loop functionality.
 
-이 모듈은 도구 실행 전 사람의 승인을 요구하는 ReAct(Reasoning and Action) 에이전트를 구현합니다.
-LangGraph의 interrupt() 기능을 사용하여 도구 호출 시점에 실행을 일시 중단하고,
-사용자가 승인/거부/수정/응답 중 하나를 선택할 수 있도록 합니다.
+This module implements a ReAct (Reasoning and Action) agent that requires human approval before executing tools.
+It uses LangGraph's interrupt() feature to pause execution at the point of a tool call,
+allowing a user to choose one of: approve, reject, modify, or respond.
 
-주요 구성 요소:
-• call_model - LLM을 호출하여 다음 액션 결정
-• human_approval - 도구 실행 전 사용자 승인 요청 (인터럽트 지점)
-• tools - 승인된 도구 실행
-• route_model_output - 모델 출력에 따라 다음 노드 결정
+Main Components:
+• call_model - Calls the LLM to decide the next action.
+• human_approval - Requests user approval before tool execution (the interrupt point).
+• tools - Executes the approved tools.
+• route_model_output - Determines the next node based on the model's output.
 
-인터럽트 및 재개 메커니즘:
-1. 모델이 도구 호출을 요청하면 human_approval 노드로 라우팅
-2. interrupt()가 실행을 일시 중단하고 클라이언트에 승인 요청 전송
-3. 클라이언트는 다음 중 하나를 선택:
-   - accept: 도구를 그대로 실행
-   - edit: 도구 인자를 수정 후 실행
-   - response: 도구 실행을 취소하고 사용자 메시지 전달
-   - ignore: 도구 실행을 취소하고 종료
-4. 사용자 응답과 함께 실행 재개 (POST /threads/{thread_id}/runs/{run_id} 엔드포인트 사용)
+Interrupt and Resume Mechanism:
+1. When the model requests a tool call, it is routed to the human_approval node.
+2. interrupt() pauses execution and sends an approval request to the client.
+3. The client chooses one of the following:
+   - accept: Execute the tool as is.
+   - edit: Execute the tool after modifying its arguments.
+   - response: Cancel the tool execution and pass on a user message.
+   - ignore: Cancel the tool execution and end.
+4. Execution resumes with the user's response (using the POST /threads/{thread_id}/runs/{run_id} endpoint).
 
-도구 호출 지원이 있는 채팅 모델과 함께 작동합니다.
+Works with chat models that have tool-calling support.
 """
 
 import json
@@ -39,48 +39,48 @@ from react_agent_hitl.tools import TOOLS
 from react_agent_hitl.utils import load_chat_model
 
 # ---------------------------------------------------------------------------
-# 모델 호출 함수
+# Model Calling Function
 # ---------------------------------------------------------------------------
 
 
 async def call_model(
     state: State, runtime: Runtime[Context]
 ) -> dict[str, list[AIMessage]]:
-    """에이전트를 구동하는 LLM을 호출하여 다음 액션 결정
+    """Calls the LLM that drives the agent to decide the next action.
 
-    이 함수는 대화 상태를 기반으로 언어 모델을 호출하고 응답을 처리합니다.
-    모델은 도구 바인딩이 적용되어 있어 필요한 경우 도구 호출을 요청할 수 있습니다.
+    This function calls the language model based on the conversation state and processes the response.
+    The model has tool binding applied, so it can request tool calls if needed.
 
-    동작 흐름:
-    1. Runtime 컨텍스트에서 모델 설정을 가져와 초기화
-    2. 도구 목록을 모델에 바인딩
-    3. 시스템 프롬프트를 현재 시간과 함께 포맷팅
-    4. 모델 호출 및 응답 수신
-    5. 최대 단계 도달 시 적절한 에러 메시지 반환
+    Flow:
+    1. Initialize the model with settings from the Runtime context.
+    2. Bind the list of tools to the model.
+    3. Format the system prompt with the current time.
+    4. Call the model and receive the response.
+    5. Return an appropriate error message if the maximum number of steps is reached.
 
     Args:
-        state (State): 현재 대화 상태 (메시지 히스토리 포함)
-        runtime (Runtime[Context]): 사용자 컨텍스트 및 모델 설정 포함
+        state (State): The current conversation state (including message history).
+        runtime (Runtime[Context]): Includes user context and model settings.
 
     Returns:
-        dict[str, list[AIMessage]]: 모델의 응답 메시지를 포함하는 딕셔너리
-                                     기존 메시지 목록에 추가될 형식
+        dict[str, list[AIMessage]]: A dictionary containing the model's response message,
+                                     formatted to be added to the existing message list.
 
-    참고:
-        - 모델 또는 도구를 변경하려면 TOOLS 목록을 수정하세요
-        - 에이전트 동작을 변경하려면 system_prompt를 커스터마이즈하세요
+    Note:
+        - To change the model or tools, modify the TOOLS list.
+        - To change the agent's behavior, customize the system_prompt.
     """
-    # 도구 바인딩과 함께 모델 초기화
-    # 다른 모델을 사용하거나 도구를 추가하려면 여기를 수정하세요
+    # Initialize the model with tool binding.
+    # To use a different model or add tools, modify this section.
     model = load_chat_model(runtime.context.model).bind_tools(TOOLS)
 
-    # 시스템 프롬프트 포맷팅
-    # 에이전트의 행동을 변경하려면 이 부분을 커스터마이즈하세요
+    # Format the system prompt.
+    # To change the agent's behavior, customize this part.
     system_message = runtime.context.system_prompt.format(
         system_time=datetime.now(tz=UTC).isoformat()
     )
 
-    # 모델 응답 가져오기
+    # Get the model's response.
     response = cast(
         "AIMessage",
         await model.ainvoke(
@@ -88,8 +88,8 @@ async def call_model(
         ),
     )
 
-    # 최대 단계에 도달했지만 모델이 여전히 도구를 사용하려는 경우 처리
-    # 무한 루프를 방지하기 위해 에러 메시지를 반환합니다
+    # Handle the case where the max steps are reached, but the model still wants to use a tool.
+    # This returns an error message to prevent infinite loops.
     if state.is_last_step and response.tool_calls:
         return {
             "messages": [
@@ -100,22 +100,21 @@ async def call_model(
             ]
         }
 
-    # 모델의 응답을 기존 메시지에 추가될 리스트로 반환
+    # Return the model's response as a list to be added to the existing messages.
     return {"messages": [response]}
 
 
 def _find_tool_message(messages: list) -> AIMessage | None:
-    """도구 호출이 포함된 가장 최근 AI 메시지 찾기
+    """Finds the most recent AI message that contains a tool call.
 
-    메시지 목록을 역순으로 탐색하여 도구 호출(tool_calls)이 있는
-    첫 번째 AIMessage를 반환합니다. 인터럽트 시점의 원본 도구 호출을
-    찾는 데 사용됩니다.
+    It searches the message list in reverse to find the first AIMessage
+    that has tool_calls. This is used to find the original tool call at the time of interruption.
 
     Args:
-        messages (list): 메시지 목록 (AIMessage, HumanMessage, ToolMessage 등)
+        messages (list): The list of messages (AIMessage, HumanMessage, ToolMessage, etc.).
 
     Returns:
-        AIMessage | None: 도구 호출이 있는 AI 메시지, 없으면 None
+        AIMessage | None: The AI message with a tool call, or None if not found.
     """
     for msg in reversed(messages):
         if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
@@ -124,17 +123,17 @@ def _find_tool_message(messages: list) -> AIMessage | None:
 
 
 def _create_tool_cancellations(tool_calls: list, reason: str) -> list[ToolMessage]:
-    """도구 호출에 대한 취소 메시지 생성
+    """Creates cancellation messages for tool calls.
 
-    사용자가 도구 실행을 거부하거나 다른 액션을 선택했을 때,
-    각 도구 호출에 대한 ToolMessage를 생성하여 취소 사유를 전달합니다.
+    When a user rejects a tool execution or chooses another action,
+    this creates a ToolMessage for each tool call to convey the reason for cancellation.
 
     Args:
-        tool_calls (list): 취소할 도구 호출 목록 (각 항목에 id, name 포함)
-        reason (str): 취소 사유 (예: "cancelled by human operator", "invalid format")
+        tool_calls (list): The list of tool calls to be cancelled (each item includes id, name).
+        reason (str): The reason for cancellation (e.g., "cancelled by human operator", "invalid format").
 
     Returns:
-        list[ToolMessage]: 각 도구 호출에 대한 취소 메시지 목록
+        list[ToolMessage]: A list of cancellation messages for each tool call.
     """
     return [
         ToolMessage(
@@ -145,16 +144,16 @@ def _create_tool_cancellations(tool_calls: list, reason: str) -> list[ToolMessag
 
 
 def _parse_args(args) -> dict:
-    """도구 인자 파싱 (JSON 문자열 처리 포함)
+    """Parses tool arguments (including handling JSON strings).
 
-    도구 호출 인자가 문자열 형태의 JSON인 경우 파싱하여 딕셔너리로 변환합니다.
-    이미 딕셔너리인 경우 그대로 반환하고, 파싱 실패 시 빈 딕셔너리를 반환합니다.
+    If the tool call arguments are a JSON string, it parses them into a dictionary.
+    If they are already a dictionary, it returns them as is. If parsing fails, it returns an empty dictionary.
 
     Args:
-        args: 도구 인자 (str, dict, 또는 기타 타입)
+        args: The tool arguments (str, dict, or other types).
 
     Returns:
-        dict: 파싱된 인자 딕셔너리, 실패 시 빈 딕셔너리
+        dict: The parsed arguments dictionary, or an empty dictionary on failure.
     """
     if isinstance(args, str):
         try:
@@ -165,29 +164,29 @@ def _parse_args(args) -> dict:
 
 
 def _update_tool_calls(original_calls: list, edited_args: dict) -> list:
-    """사용자가 수정한 인자로 도구 호출 업데이트
+    """Updates tool calls with user-modified arguments.
 
-    사용자가 "edit" 응답 타입을 선택했을 때, 원본 도구 호출의 인자를
-    사용자가 제공한 새로운 인자로 교체합니다.
+    When a user selects the "edit" response type, this replaces the arguments
+    of the original tool call with the new arguments provided by the user.
 
     Args:
-        original_calls (list): 원본 도구 호출 목록 (각 항목에 name, args 포함)
-        edited_args (dict): 사용자가 수정한 인자 딕셔너리
-                            예: {"args": {"tool_name": {"param": "new_value"}}}
+        original_calls (list): The list of original tool calls (each item includes name, args).
+        edited_args (dict): The dictionary of user-modified arguments.
+                            Example: {"args": {"tool_name": {"param": "new_value"}}}
 
     Returns:
-        list: 업데이트된 도구 호출 목록
+        list: The list of updated tool calls.
     """
     updated_calls = []
     for call in original_calls:
         updated_call = call.copy()
         tool_name = call["name"]
 
-        # 사용자가 이 도구에 대한 수정 인자를 제공했는지 확인
+        # Check if the user provided modified arguments for this tool.
         if tool_name in edited_args.get("args", {}):
             updated_call["args"] = _parse_args(edited_args["args"][tool_name])
         else:
-            # 수정 인자가 없으면 원본 인자 사용
+            # If no modified arguments, use the original ones.
             updated_call["args"] = _parse_args(call["args"])
 
         updated_calls.append(updated_call)
@@ -195,53 +194,53 @@ def _update_tool_calls(original_calls: list, edited_args: dict) -> list:
 
 
 async def human_approval(state: State) -> Command:
-    """도구 실행 전 사용자 승인 요청 (핵심 인터럽트 지점)
+    """Requests user approval before tool execution (the core interrupt point).
 
-    이 함수는 Human-in-the-Loop 패턴의 핵심으로, 에이전트가 도구를 실행하기 전에
-    사용자의 승인을 받도록 실행을 일시 중단합니다. LangGraph의 interrupt() 함수를
-    호출하여 실행을 멈추고 클라이언트에 승인 요청을 전송합니다.
+    This function is the core of the Human-in-the-Loop pattern. It suspends execution
+    to get the user's approval before the agent executes a tool. It calls LangGraph's
+    interrupt() function to stop execution and send an approval request to the client.
 
-    인터럽트 메커니즘:
-    1. interrupt() 호출 시 LangGraph가 현재 상태를 체크포인트에 저장
-    2. 클라이언트에 SSE 이벤트로 승인 요청 전송
-    3. 실행이 일시 중단되고 사용자 응답 대기
-    4. 사용자가 POST /threads/{thread_id}/runs/{run_id} 엔드포인트로 응답 전송
-    5. 사용자 응답과 함께 이 함수가 재개되어 다음 노드로 라우팅
+    Interrupt Mechanism:
+    1. When interrupt() is called, LangGraph saves the current state to a checkpoint.
+    2. An approval request is sent to the client as an SSE event.
+    3. Execution is suspended, waiting for the user's response.
+    4. The user sends a response via the POST /threads/{thread_id}/runs/{run_id} endpoint.
+    5. This function resumes with the user's response and routes to the next node.
 
-    사용자 응답 타입:
-    - accept: 도구를 원래 인자 그대로 실행
-    - edit: 도구 인자를 수정한 후 실행
-    - response: 도구 실행을 취소하고 사용자의 텍스트 응답 제공
-    - ignore: 도구 실행을 취소하고 대화 종료
+    User Response Types:
+    - accept: Execute the tool with the original arguments.
+    - edit: Execute the tool after modifying its arguments.
+    - response: Cancel the tool execution and provide the user's text response.
+    - ignore: Cancel the tool execution and end the conversation.
 
     Args:
-        state (State): 현재 대화 상태 (도구 호출이 포함된 메시지 포함)
+        state (State): The current conversation state (including the message with the tool call).
 
     Returns:
-        Command: 다음 노드로의 라우팅 지시 및 상태 업데이트
-                 - accept: goto="tools" (도구 실행)
-                 - edit: goto="tools" with updated args (수정된 인자로 도구 실행)
-                 - response: goto="call_model" (취소 후 모델 재호출)
-                 - ignore: goto=END (실행 종료)
+        Command: A routing instruction for the next node and a state update.
+                 - accept: goto="tools" (execute tool).
+                 - edit: goto="tools" with updated args (execute tool with modified arguments).
+                 - response: goto="call_model" (cancel and re-call the model).
+                 - ignore: goto=END (end execution).
 
-    참고:
-        - 재개 방법: POST /threads/{thread_id}/runs/{run_id}
-          Body: [{"type": "accept"}] 또는 다른 응답 타입
-        - LangGraph는 자동으로 체크포인트를 관리하므로 명시적 저장 불필요
+    Note:
+        - How to resume: POST /threads/{thread_id}/runs/{run_id}
+          Body: [{"type": "accept"}] or another response type.
+        - LangGraph automatically manages checkpoints, so no explicit saving is needed.
     """
-    # TODO: Mark as Resolved 기능 수정 필요
-    # 이슈: Command(goto=END)가 LangGraph 버그로 무한 루프 생성
-    # GitHub 이슈: https://github.com/langchain-ai/langgraph/issues/5572
-    # goto=END 명령이 무시되고 "branch:to:__end__" 채널 에러 발생
+    # TODO: The Mark as Resolved feature needs to be fixed.
+    # Issue: Command(goto=END) creates an infinite loop due to a LangGraph bug.
+    # GitHub Issue: https://github.com/langchain-ai/langgraph/issues/5572
+    # The goto=END command is ignored, and a "branch:to:__end__" channel error occurs.
 
-    # 도구 호출이 포함된 가장 최근 AI 메시지 찾기
+    # Find the most recent AI message that contains a tool call.
     tool_message = _find_tool_message(state.messages)
     if not tool_message:
-        # 도구 호출이 없으면 종료
+        # If there's no tool call, end.
         return Command(goto=END)
 
-    # 인터럽트 호출: 실행을 일시 중단하고 사용자 승인 요청
-    # 이 함수는 사용자가 응답할 때까지 여기서 멈춥니다
+    # Call interrupt: suspend execution and request user approval.
+    # This function will pause here until the user responds.
     human_response = interrupt(
         {
             "action_request": {
@@ -251,38 +250,38 @@ async def human_approval(state: State) -> Command:
                 },
             },
             "config": {
-                "allow_respond": True,  # 사용자가 직접 응답 가능
-                "allow_accept": True,  # 도구 승인 가능
-                "allow_edit": True,  # 도구 인자 수정 가능
-                "allow_ignore": True,  # 도구 실행 거부 가능
+                "allow_respond": True,  # User can respond directly.
+                "allow_accept": True,  # Tool approval is allowed.
+                "allow_edit": True,  # Tool argument modification is allowed.
+                "allow_ignore": True,  # Tool execution rejection is allowed.
             },
         }
     )
 
-    # 사용자 응답이 없거나 형식이 잘못된 경우 종료
+    # If there's no user response or it's in an invalid format, end.
     if not human_response or not isinstance(human_response, list):
         return Command(goto=END)
 
-    # 첫 번째 응답 추출 및 타입 확인
+    # Extract the first response and check its type.
     response = human_response[0]
     response_type = response.get("type", "")
     response_args = response.get("args")
 
-    # 사용자 응답 타입에 따라 분기 처리
+    # Branch based on the user's response type.
 
     if response_type == "accept":
-        # 승인: 도구를 원래 인자 그대로 실행
+        # Approval: Execute the tool with the original arguments.
         return Command(goto="tools")
 
     elif response_type == "response":
-        # 응답: 도구 실행을 취소하고 사용자 메시지를 모델에 전달
-        # 도구 호출들을 취소 메시지로 변환
+        # Response: Cancel the tool execution and pass the user's message to the model.
+        # Convert the tool calls to cancellation messages.
         tool_responses = _create_tool_cancellations(
             tool_message.tool_calls, "was interrupted for human input"
         )
-        # 사용자의 텍스트 응답을 HumanMessage로 생성
+        # Create a HumanMessage from the user's text response.
         human_message = HumanMessage(content=str(response_args))
-        # 취소 메시지와 사용자 메시지를 상태에 추가하고 모델 재호출
+        # Add the cancellation and user messages to the state and re-call the model.
         return Command(
             goto="call_model", update={"messages": tool_responses + [human_message]}
         )
@@ -292,17 +291,17 @@ async def human_approval(state: State) -> Command:
         and isinstance(response_args, dict)
         and "args" in response_args
     ):
-        # 수정: 도구 인자를 사용자가 제공한 값으로 업데이트 후 실행
+        # Modification: Update the tool arguments with the user-provided values and then execute.
         updated_calls = _update_tool_calls(tool_message.tool_calls, response_args)
-        # 수정된 도구 호출로 새 AIMessage 생성
+        # Create a new AIMessage with the modified tool calls.
         updated_message = AIMessage(
             content=tool_message.content, tool_calls=updated_calls, id=tool_message.id
         )
-        # 업데이트된 메시지로 도구 실행
+        # Execute the tool with the updated message.
         return Command(goto="tools", update={"messages": [updated_message]})
 
-    else:  # ignore 또는 잘못된 형식
-        # 거부: 도구 실행을 취소하고 종료
+    else:  # ignore or invalid format
+        # Rejection: Cancel the tool execution and end.
         reason = (
             "cancelled by human operator"
             if response_type == "ignore"
@@ -313,40 +312,40 @@ async def human_approval(state: State) -> Command:
 
 
 # ---------------------------------------------------------------------------
-# 그래프 정의 및 구성
+# Graph Definition and Configuration
 # ---------------------------------------------------------------------------
 
 builder = StateGraph(State, input_schema=InputState, context_schema=Context)
 
-# 그래프에서 순환할 노드들 정의
-builder.add_node(call_model)  # LLM 호출 노드
-builder.add_node("tools", ToolNode(TOOLS))  # 도구 실행 노드
-builder.add_node(human_approval)  # 사용자 승인 노드 (인터럽트 지점)
+# Define the nodes that will cycle in the graph.
+builder.add_node(call_model)  # LLM calling node
+builder.add_node("tools", ToolNode(TOOLS))  # Tool execution node
+builder.add_node(human_approval)  # User approval node (interrupt point)
 
-# 진입점을 call_model로 설정
-# 그래프 실행 시 가장 먼저 호출되는 노드입니다
+# Set the entry point to call_model.
+# This is the first node called when the graph is executed.
 builder.add_edge("__start__", "call_model")
 
 
 def route_model_output(state: State) -> Literal["__end__", "human_approval"]:
-    """모델 출력에 따라 다음 노드 결정 (라우팅 함수)
+    """Determines the next node based on the model's output (routing function).
 
-    이 함수는 모델의 마지막 메시지를 확인하여 도구 호출이 포함되어 있는지 검사합니다.
-    도구 호출이 있으면 human_approval 노드로 라우팅하여 사용자 승인을 받고,
-    도구 호출이 없으면 대화를 종료합니다.
+    This function checks the model's last message to see if it includes a tool call.
+    If a tool call is present, it routes to the human_approval node to get user approval.
+    If there is no tool call, it ends the conversation.
 
-    라우팅 로직:
-    - 도구 호출 있음 → human_approval (사용자 승인 요청)
-    - 도구 호출 없음 → __end__ (대화 종료)
+    Routing Logic:
+    - Tool call present → human_approval (request user approval)
+    - No tool call → __end__ (end conversation)
 
     Args:
-        state (State): 현재 대화 상태 (메시지 히스토리 포함)
+        state (State): The current conversation state (including message history).
 
     Returns:
-        Literal["__end__", "human_approval"]: 다음에 실행할 노드 이름
+        Literal["__end__", "human_approval"]: The name of the next node to execute.
 
     Raises:
-        ValueError: 마지막 메시지가 AIMessage가 아닌 경우
+        ValueError: If the last message is not an AIMessage.
     """
     last_message = state.messages[-1]
     if not isinstance(last_message, AIMessage):
@@ -354,26 +353,26 @@ def route_model_output(state: State) -> Literal["__end__", "human_approval"]:
             f"Expected AIMessage in output edges, but got {type(last_message).__name__}"
         )
 
-    # 도구 호출이 없으면 대화 종료
+    # If there are no tool calls, end the conversation.
     if not last_message.tool_calls:
         return "__end__"
 
-    # 도구 호출이 있으면 먼저 사용자 승인 필요
+    # If there are tool calls, user approval is needed first.
     return "human_approval"
 
 
-# call_model 노드에서 조건부 엣지 추가
-# 모델 출력을 확인하여 human_approval 또는 종료로 분기
+# Add a conditional edge from the call_model node.
+# This checks the model's output and branches to human_approval or ends.
 builder.add_conditional_edges(
     "call_model", route_model_output, path_map=["human_approval", END]
 )
 
 
-# tools 노드에서 call_model로의 일반 엣지 추가
-# 이렇게 하면 사이클이 생성됩니다: 도구 사용 후 항상 모델로 돌아갑니다
-# (도구 실행 결과를 바탕으로 모델이 다음 액션을 결정)
+# Add a regular edge from the tools node to call_model.
+# This creates a cycle: after using a tool, it always goes back to the model.
+# (The model decides the next action based on the tool execution results).
 builder.add_edge("tools", "call_model")
 
-# 빌더를 실행 가능한 그래프로 컴파일
-# Human-in-the-Loop 기능을 갖춘 ReAct 에이전트 완성
+# Compile the builder into an executable graph.
+# This completes the ReAct agent with Human-in-the-Loop functionality.
 graph = builder.compile(name="ReAct Agent")

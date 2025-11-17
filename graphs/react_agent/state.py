@@ -1,16 +1,16 @@
-"""ReAct 에이전트의 상태 구조 정의
+"""Defines the state structure for the ReAct agent.
 
-이 모듈은 LangGraph 그래프에서 사용되는 상태(State) 구조를 정의합니다.
-TypedDict를 사용하여 상태 채널과 리듀서를 명확히 정의하고,
-에이전트 실행 중 필요한 모든 정보를 추적합니다.
+This module defines the State structure used in the LangGraph graph.
+It uses TypedDict to clearly define state channels and reducers,
+and tracks all necessary information during agent execution.
 
-주요 구성 요소:
-• InputState - 외부 세계와의 인터페이스를 나타내는 입력 상태
-• State - 에이전트의 전체 생애주기 동안 사용되는 완전한 상태
+Main components:
+• InputState - The input state representing the interface with the outside world.
+• State - The complete state used throughout the agent's entire lifecycle.
 
-상태 채널:
-• messages - 대화 메시지 이력 (add_messages 리듀서로 관리)
-• is_last_step - 재귀 제한 도달 여부를 나타내는 관리형 변수
+State Channels:
+• messages - The conversation message history (managed by the add_messages reducer).
+• is_last_step - A managed variable indicating whether the recursion limit has been reached.
 """
 
 from __future__ import annotations
@@ -26,89 +26,89 @@ from langgraph.managed import IsLastStep
 
 @dataclass
 class InputState:
-    """에이전트의 입력 상태를 정의하며, 외부 세계와의 좁은 인터페이스를 나타냄
+    """Defines the agent's input state, representing a narrow interface with the outside world.
 
-    이 클래스는 외부로부터 들어오는 데이터의 초기 상태와 구조를 정의합니다.
-    LangGraph 그래프의 입력 채널로 사용되며, 클라이언트가 제공하는
-    최소한의 정보만 포함합니다.
+    This class defines the initial state and structure of data coming from external sources.
+    It is used as the input channel for the LangGraph graph and contains only the
+    minimal information provided by the client.
 
-    주요 특징:
-    - 외부 API 요청으로부터 받은 입력 데이터 구조화
-    - State 클래스의 부모 클래스로 사용
-    - 입력 검증 및 타입 안정성 제공
+    Key features:
+    - Structures input data received from external API requests.
+    - Serves as the parent class for the State class.
+    - Provides input validation and type safety.
 
-    사용 예:
-        input_state = InputState(messages=[HumanMessage(content="안녕하세요")])
+    Usage Example:
+        input_state = InputState(messages=[HumanMessage(content="Hello")])
     """
 
     messages: Annotated[Sequence[AnyMessage], add_messages] = field(
         default_factory=list
     )
     """
-    에이전트의 주요 실행 상태를 추적하는 메시지 이력
+    The message history that tracks the agent's main execution state.
 
-    일반적으로 다음과 같은 패턴으로 누적됩니다:
-    1. HumanMessage - 사용자 입력
-    2. AIMessage with .tool_calls - 에이전트가 정보 수집을 위해 선택한 도구
-    3. ToolMessage(s) - 실행된 도구의 응답 또는 오류
-    4. AIMessage without .tool_calls - 에이전트가 사용자에게 비구조화된 형식으로 응답
-    5. HumanMessage - 사용자가 다음 대화 턴으로 응답
+    It typically accumulates in the following pattern:
+    1. HumanMessage - User input.
+    2. AIMessage with .tool_calls - The tools the agent has chosen to gather information.
+    3. ToolMessage(s) - The response or error from the executed tools.
+    4. AIMessage without .tool_calls - The agent responds to the user in an unstructured format.
+    5. HumanMessage - The user responds for the next turn of the conversation.
 
-    2-5 단계는 필요에 따라 반복됩니다.
+    Steps 2-5 are repeated as needed.
 
-    `add_messages` 리듀서 동작:
-    - 새 메시지를 기존 메시지와 병합
-    - ID를 기준으로 업데이트하여 "추가 전용(append-only)" 상태 유지
-    - 동일한 ID를 가진 메시지가 제공되면 기존 메시지를 업데이트
-    - 이를 통해 메시지 수정 및 재시도 패턴 지원
+    `add_messages` reducer behavior:
+    - Merges new messages with existing ones.
+    - Updates based on ID to maintain an "append-only" state.
+    - If a message with the same ID is provided, it updates the existing message.
+    - This supports message modification and retry patterns.
     """
 
 
 @dataclass
 class State(InputState):
-    """에이전트의 완전한 상태를 나타내며, InputState를 추가 속성으로 확장
+    """Represents the complete state of the agent, extending InputState with additional attributes.
 
-    이 클래스는 에이전트의 전체 생애주기 동안 필요한 모든 정보를 저장합니다.
-    InputState를 상속받아 입력 데이터뿐만 아니라 실행 중 생성되는
-    내부 상태 정보도 포함합니다.
+    This class stores all the information needed throughout the agent's entire lifecycle.
+    It inherits from InputState to include not only input data but also internal state
+    information generated during execution.
 
-    주요 특징:
-    - InputState의 모든 채널 포함 (messages 등)
-    - 실행 제어를 위한 관리형 변수 추가 (is_last_step)
-    - LangGraph가 체크포인트로 영속화하는 완전한 상태
+    Key features:
+    - Includes all channels from InputState (e.g., messages).
+    - Adds managed variables for execution control (is_last_step).
+    - The complete state that LangGraph persists as a checkpoint.
 
-    사용 패턴:
-    - 노드 함수는 State를 입력으로 받고 부분 업데이트를 반환
-    - LangGraph는 리듀서를 사용하여 부분 업데이트를 병합
-    - 각 단계마다 전체 상태가 체크포인트에 저장됨
+    Usage pattern:
+    - Node functions receive State as input and return partial updates.
+    - LangGraph uses reducers to merge the partial updates.
+    - The full state is saved to a checkpoint at each step.
 
-    사용 예:
+    Usage Example:
         def my_node(state: State) -> dict:
-            # 상태에서 메시지 읽기
+            # Read messages from the state
             messages = state.messages
-            # 부분 업데이트 반환 (리듀서가 병합)
-            return {"messages": [AIMessage(content="응답")]}
+            # Return a partial update (the reducer will merge it)
+            return {"messages": [AIMessage(content="Response")]}
     """
 
     is_last_step: IsLastStep = field(default=False)
     """
-    그래프가 오류를 발생시키기 전 현재 단계가 마지막인지 여부를 나타냄
+    Indicates whether the current step is the last before the graph would raise an error.
 
-    관리형 변수 특징:
-    - 사용자 코드가 아닌 LangGraph 상태 머신이 제어
-    - 단계 카운트가 recursion_limit - 1에 도달하면 True로 설정
-    - 무한 루프 방지 및 재귀 제한 처리에 사용
+    Managed variable features:
+    - Controlled by the LangGraph state machine, not user code.
+    - Set to True when the step count reaches recursion_limit - 1.
+    - Used to prevent infinite loops and handle recursion limits.
 
-    동작 방식:
-    1. LangGraph가 각 단계마다 카운트 증가
-    2. recursion_limit - 1 도달 시 is_last_step = True
-    3. 노드는 이 값을 확인하여 종료 여부 결정 가능
-    4. 다음 단계에서 recursion_limit 도달 시 RecursionError 발생
+    How it works:
+    1. LangGraph increments a counter at each step.
+    2. When recursion_limit - 1 is reached, is_last_step = True.
+    3. Nodes can check this value to decide whether to terminate.
+    4. If the next step reaches the recursion_limit, a RecursionError is raised.
 
-    사용 예:
+    Usage Example:
         def my_node(state: State) -> dict:
             if state.is_last_step:
-                # 마지막 단계이므로 강제 종료
-                return {"messages": [AIMessage(content="제한 도달")]}
-            # 정상 처리 계속
+                # Force termination because it's the last step
+                return {"messages": [AIMessage(content="Limit reached")]}
+            # Continue normal processing
     """

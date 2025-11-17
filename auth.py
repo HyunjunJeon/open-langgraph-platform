@@ -1,11 +1,11 @@
 """
-LangGraph 에이전트 서버의 인증 구성.
+Authentication configuration for the LangGraph agent server.
 
-이 모듈은 환경 기반 인증 전환을 제공합니다:
-- noop: 인증 없음 (모든 요청 허용)
-- custom: 사용자 정의 인증 통합
+This module provides environment-based authentication switching:
+- noop: No authentication (all requests allowed)
+- custom: Custom authentication integration
 
-인증 모드를 선택하려면 AUTH_TYPE 환경 변수를 설정하십시오.
+Set the AUTH_TYPE environment variable to select the authentication mode.
 """
 
 import logging
