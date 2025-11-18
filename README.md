@@ -1,51 +1,51 @@
-# 오픈소스 LangGraph Platform
+# Open Source LangGraph Platform
 
 <p align="center">
-  <strong>셀프 호스팅 AI 에이전트 백엔드. 벤더 종속 없이 LangGraph의 강력한 기능을 활용하세요.</strong>
+  <strong>Self-hosted AI agent backend. Harness the power of LangGraph without vendor lock-in.</strong>
 </p>
 
-LangGraph Platform을 자체 인프라로 대체하세요.  
-에이전트 오케스트레이션을 완전히 제어하고자 하는 개발자를 위해 FastAPI + PostgreSQL로 구축되었습니다.
+Replace LangGraph Platform with your own infrastructure.
+Built with FastAPI + PostgreSQL for developers who want full control over agent orchestration.
 
-**Agent Protocol 준수**: Open LangGraph는 프로덕션 환경에서 LLM 에이전트를 제공하기 위한 오픈소스 표준인 [Agent Protocol](https://github.com/langchain-ai/agent-protocol) 사양을 구현합니다.
+**Agent Protocol Compliant**: Open LangGraph implements the [Agent Protocol](https://github.com/langchain-ai/agent-protocol) specification, an open-source standard for serving LLM agents in production.
 
-**이런 분들께 추천합니다:** 벤더 종속에서 벗어나고자 하는 팀 • 데이터 주권 요구사항이 있는 경우 • 커스텀 배포가 필요한 경우 • 비용 최적화를 원하는 경우
+**Recommended for:** Teams wanting to escape vendor lock-in • Cases with data sovereignty requirements • Situations needing custom deployment • Those aiming for cost optimization
 
-## 왜 LangGraph Platform 대신 Open LangGraph인가?
+## Why Open LangGraph instead of LangGraph Platform?
 
-| 기능                | LangGraph Platform         | Open LangGraph (셀프 호스팅)                               |
+| Feature                | LangGraph Platform         | Open LangGraph (Self-hosted)                               |
 | ---------------------- | -------------------------- | ------------------------------------------------- |
-| **비용**               | 월 $$$+             | **무료** (셀프 호스팅, 인프라 비용만 발생)           |
-| **데이터 제어**       | 타사 호스팅         | **자체 인프라**                           |
-| **벤더 종속**     | 높은 의존성            | **제로 종속**                                  |
-| **커스터마이징**      | 플랫폼 제한사항       | **완전한 제어**                                  |
-| **API 호환성**  | LangGraph SDK              | **동일한 LangGraph SDK**                            |
-| **인증**     | Lite: 커스텀 인증 불가       | **커스텀 인증** (JWT/OAuth/Firebase/NoAuth)       |
-| **데이터베이스 소유권** | 자체 데이터베이스 불가 | **BYO Postgres** (자격 증명 및 스키마 소유) |
-| **Human-in-the-Loop** | 지원 | **완전 지원** (승인 게이트, 사용자 개입) |
-| **관찰성/추적**  | LangSmith 강제   | **선택 가능** ([Langfuse](docs/langfuse-usage.md)/None) |
+| **Cost**               | $$$+/month             | **Free** (Self-hosted, only infrastructure costs)           |
+| **Data Control**       | Third-party hosting         | **Your own infrastructure**                           |
+| **Vendor Lock-in**     | High dependency            | **Zero dependency**                                  |
+| **Customization**      | Platform limitations       | **Complete control**                                  |
+| **API Compatibility**  | LangGraph SDK              | **Same LangGraph SDK**                            |
+| **Authentication**     | Lite: No custom auth       | **Custom Authentication** (JWT/OAuth/Firebase/NoAuth)       |
+| **Database Ownership** | No custom database | **BYO Postgres** (Own credentials and schema) |
+| **Human-in-the-Loop** | Supported | **Fully Supported** (Approval gates, user intervention) |
+| **Observability/Tracing**  | LangSmith required   | **Optional** ([Langfuse](docs/langfuse-usage.md)/None) |
 
-## 핵심 이점
+## Core Benefits
 
-- 셀프 호스팅: 자체 인프라에서 실행, 자체 규칙 적용
-- 드롭인 대체: 기존 LangGraph Client SDK를 변경 없이 사용
-- 프로덕션 준비: PostgreSQL 영속성, 스트리밍, 인증
-- 빠른 설정: Docker로 5분 만에 배포
-- Agent Protocol 준수: 오픈소스 [Agent Protocol](https://github.com/langchain-ai/agent-protocol) 사양 구현
-- Agent Chat UI 호환: [LangChain의 Agent Chat UI](https://github.com/langchain-ai/agent-chat-ui)와 원활하게 작동
+- Self-hosted: Run on your own infrastructure, apply your own rules
+- Drop-in replacement: Use the existing LangGraph Client SDK without changes
+- Production-ready: PostgreSQL persistence, streaming, authentication
+- Quick setup: Deploy in 5 minutes with Docker
+- Agent Protocol Compliant: Implements the open-source [Agent Protocol](https://github.com/langchain-ai/agent-protocol) specification
+- Agent Chat UI Compatible: Works seamlessly with [LangChain's Agent Chat UI](https://github.com/langchain-ai/agent-chat-ui)
 
-## 빠른 시작 (5분)
+## Quick Start (5 minutes)
 
-### 사전 요구사항
+### Prerequisites
 
 - Python 3.11+
-- Docker (PostgreSQL용)
-- uv (Python 패키지 매니저)
+- Docker (for PostgreSQL)
+- uv (Python package manager)
 
-### 실행하기
+### Getting Started
 
 ```bash
-# 클론 및 설정
+# Clone and set up
 git clone https://github.com/HyunjunJeon/open-langgraph-platform.git
 cd open-langgraph
 # If you don't have uv, install it
