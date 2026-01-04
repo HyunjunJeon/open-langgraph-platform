@@ -192,25 +192,25 @@ DATABASE_URL=sqlite:///:memory:
 
 ### Redis Caching (Optional)
 
-Redis 캐싱을 통해 Assistant 메타데이터 조회 성능을 개선합니다.
+Redis caching improves Assistant metadata retrieval performance.
 
-**설치**: `uv pip install ".[redis]"`
+**Install**: `uv pip install ".[redis]"`
 
-**환경 변수**:
+**Environment Variables**:
 ```bash
-# Optional - 설정하지 않으면 캐싱 비활성화 (graceful degradation)
+# Optional - caching is disabled if not set (graceful degradation)
 REDIS_URL=redis://localhost:6379/0
-CACHE_TTL_DEFAULT=3600  # 기본 TTL (초)
+CACHE_TTL_DEFAULT=3600  # Default TTL (seconds)
 ```
 
-**캐싱 대상**:
-- Assistant 메타데이터 (TTL: 1시간)
-- 그래프 스키마 (TTL: 2시간)
-- 실행 정보 (TTL: 5분)
+**Cached Data**:
+- Assistant metadata (TTL: 1 hour)
+- Graph schemas (TTL: 2 hours)
+- Run information (TTL: 5 minutes)
 
-**Docker Compose**: Redis 서비스가 기본 포함되어 있습니다.
+**Docker Compose**: Redis service is included by default.
 ```bash
-docker compose up -d  # postgres + redis 모두 시작
+docker compose up -d  # Starts postgres + redis
 ```
 
 ### Configuration System
@@ -272,6 +272,41 @@ graph = workflow.compile()  # Must export as 'graph'
 - **broker.py**: Message broker pattern for coordinating run execution and event distribution.
 - **event_converter.py**: Converts LangGraph events to Agent Protocol format for client compatibility.
 - **thread_state_service.py**: Manages thread state retrieval and checkpoint history.
+- **organization_service.py**: Multi-tenant organization management with user memberships.
+- **quota_service.py**: Resource quota management and usage tracking per organization.
+- **agent_auth/**: Agent-to-agent authentication with JWT verification.
+
+### Middleware Layer
+
+**Middleware** (src/agent_server/middleware/):
+
+- **double_encoded_json.py**: Handles double-encoded JSON payloads common in certain client libraries. Automatically detects and decodes nested JSON strings.
+- **rate_limit.py**: Request rate limiting using Redis backend (requires `[redis]` extras). Configurable per-endpoint limits with sliding window algorithm.
+- **audit.py**: Audit logging middleware for tracking API access and changes. Records user, action, resource, and timestamp.
+
+### A2A (Agent-to-Agent) Communication
+
+**A2A Module** (src/agent_server/a2a/):
+
+Implements the [A2A Protocol](https://github.com/google/A2A) for agent-to-agent communication:
+
+- **router.py**: FastAPI router for A2A endpoints (`/.well-known/agent.json`, `/a2a/tasks/*`)
+- **card_generator.py**: Generates Agent Cards from LangGraph graphs with skill detection
+- **executor.py**: Executes A2A tasks by routing to LangGraph runs
+- **converter.py**: Converts between A2A message formats and LangGraph state
+- **detector.py**: Detects agent capabilities from graph structure
+- **decorators.py**: `@a2a_skill` decorator for marking functions as A2A-discoverable
+
+### Federation Service
+
+**Federation** (src/agent_server/services/federation/):
+
+Enables communication with remote Open LangGraph instances:
+
+- **federation_service.py**: Orchestrates cross-instance agent invocations
+- **remote_a2a_client.py**: HTTP client for remote A2A endpoints
+- **remote_agent_card_service.py**: Fetches and caches remote agent cards
+- **config.py**: Federation configuration and trusted instance registry
 
 ### Observability Integration
 
@@ -398,3 +433,57 @@ python3 scripts/migrate.py reset
 - Always activate virtual environment before running migrations
 - Docker automatically runs migrations on startup
 - Migration files are version-controlled and should be committed with code changes
+
+## CLI Tool (olg)
+
+Install CLI extras: `uv pip install ".[cli]"`
+
+```bash
+# Available after installation
+olg --help
+```
+
+The CLI provides commands for managing Open LangGraph from the command line (scaffolding, migrations, etc.).
+
+## Test Markers
+
+The project uses pytest markers to categorize tests:
+
+```bash
+# Run by marker
+uv run pytest -m e2e           # End-to-end tests
+uv run pytest -m db            # Tests requiring PostgreSQL
+uv run pytest -m hitl          # Human-in-the-Loop tests
+uv run pytest -m real_graph    # Tests using real LangGraph with fake LLM
+uv run pytest -m integration   # Integration tests
+uv run pytest -m redis         # Tests requiring Redis
+uv run pytest -m rate_limit    # Rate limiting tests (Redis + slowapi)
+
+# Run by directory
+uv run pytest tests/unit/           # Fast, isolated tests
+uv run pytest tests/integration/    # Component integration tests
+uv run pytest tests/e2e/           # Full system tests
+```
+
+## API Endpoints
+
+**Core Agent Protocol Endpoints:**
+
+- `GET /health` - Health check
+- `GET/POST /assistants` - Assistant CRUD
+- `GET/POST /threads` - Thread management
+- `POST /threads/{thread_id}/runs` - Create and execute runs
+- `POST /threads/{thread_id}/runs/stream` - Streaming execution
+- `GET/POST /store/items` - Long-term memory storage
+
+**A2A Endpoints:**
+
+- `GET /.well-known/agent.json` - Agent Card discovery
+- `POST /a2a/tasks/send` - Send task to agent
+- `GET /a2a/tasks/{task_id}` - Get task status
+
+**Admin Endpoints:**
+
+- `GET/POST /organizations` - Organization management
+- `GET /quotas` - Quota information
+- `GET /audit/logs` - Audit log retrieval
