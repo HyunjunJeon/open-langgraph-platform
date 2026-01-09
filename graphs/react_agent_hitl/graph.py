@@ -28,7 +28,7 @@ from datetime import UTC, datetime
 from typing import Literal, cast
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
 from langgraph.types import Command, interrupt
@@ -325,7 +325,7 @@ builder.add_node(human_approval)  # 사용자 승인 노드 (인터럽트 지점
 
 # 진입점을 call_model로 설정
 # 그래프 실행 시 가장 먼저 호출되는 노드입니다
-builder.add_edge("__start__", "call_model")
+builder.add_edge(START, "call_model")
 
 
 def route_model_output(state: State) -> Literal["__end__", "human_approval"]:
@@ -356,7 +356,7 @@ def route_model_output(state: State) -> Literal["__end__", "human_approval"]:
 
     # 도구 호출이 없으면 대화 종료
     if not last_message.tool_calls:
-        return "__end__"
+        return END
 
     # 도구 호출이 있으면 먼저 사용자 승인 필요
     return "human_approval"

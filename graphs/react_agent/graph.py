@@ -30,7 +30,7 @@ from datetime import UTC, datetime
 from typing import Literal, cast
 
 from langchain_core.messages import AIMessage
-from langgraph.graph import StateGraph
+from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
 
@@ -133,7 +133,7 @@ builder.add_node("tools", ToolNode(TOOLS))
 
 # 진입점 설정: 그래프 시작 시 call_model 노드부터 실행
 # __start__는 LangGraph의 특수 노드로 그래프의 시작점을 의미
-builder.add_edge("__start__", "call_model")
+builder.add_edge(START, "call_model")
 
 
 def route_model_output(state: State) -> Literal["__end__", "tools"]:
@@ -175,7 +175,7 @@ def route_model_output(state: State) -> Literal["__end__", "tools"]:
     # 도구 호출이 없으면 그래프 종료
     # LLM이 최종 답변을 텍스트로만 반환했다는 의미 (더 이상 도구 실행 불필요)
     if not last_message.tool_calls:
-        return "__end__"
+        return END
 
     # 도구 호출이 있으면 tools 노드로 이동하여 실행
     # ReAct 패턴의 "Action" 단계 진입
