@@ -54,7 +54,6 @@ from ..core.serializers import GeneralSerializer
 from ..core.sse import create_end_event, get_sse_headers
 from ..models import (
     Run,
-    RunBatchItem,
     RunBatchRequest,
     RunBatchResponse,
     RunBatchResultItem,
@@ -158,9 +157,7 @@ def map_command_to_langgraph(cmd: dict[str, Any]) -> Command:
 
     return Command(
         update=update,
-        goto=(
-            [it if isinstance(it, str) else Send(it["node"], it["input"]) for it in goto] if goto else None
-        ),
+        goto=([it if isinstance(it, str) else Send(it["node"], it["input"]) for it in goto] if goto else None),
         resume=cmd.get("resume"),
     )
 
@@ -196,16 +193,12 @@ async def set_thread_status(session: AsyncSession, thread_id: str, status: str) 
         None
     """
     await session.execute(
-        update(ThreadORM)
-        .where(ThreadORM.thread_id == thread_id)
-        .values(status=status, updated_at=datetime.now(UTC))
+        update(ThreadORM).where(ThreadORM.thread_id == thread_id).values(status=status, updated_at=datetime.now(UTC))
     )
     await session.commit()
 
 
-async def update_thread_metadata(
-    session: AsyncSession, thread_id: str, assistant_id: str, graph_id: str
-) -> None:
+async def update_thread_metadata(session: AsyncSession, thread_id: str, assistant_id: str, graph_id: str) -> None:
     """스레드 메타데이터에 어시스턴트 및 그래프 정보 업데이트 (DB 방언 독립적)
 
     스레드 메타데이터에 어시스턴트 ID와 그래프 ID를 추가합니다.
@@ -234,16 +227,12 @@ async def update_thread_metadata(
     if not thread:
         raise HTTPException(404, f"Thread '{thread_id}' not found for metadata update")
     md = dict(getattr(thread, "metadata_json", {}) or {})
-    md.update(
-        {
-            "assistant_id": str(assistant_id),
-            "graph_id": graph_id,
-        }
-    )
+    md.update({
+        "assistant_id": str(assistant_id),
+        "graph_id": graph_id,
+    })
     await session.execute(
-        update(ThreadORM)
-        .where(ThreadORM.thread_id == thread_id)
-        .values(metadata_json=md, updated_at=datetime.now(UTC))
+        update(ThreadORM).where(ThreadORM.thread_id == thread_id).values(metadata_json=md, updated_at=datetime.now(UTC))
     )
     await session.commit()
 
@@ -302,12 +291,8 @@ async def create_run(
 
     # LangGraph 서비스 가져오기
     langgraph_service = get_langgraph_service()
-    print(
-        f"create_run: scheduling background task run_id={run_id} thread_id={thread_id} user={user.identity}"
-    )
-    print(
-        f"[create_run] scheduling background task run_id={run_id} thread_id={thread_id} user={user.identity}"
-    )
+    print(f"create_run: scheduling background task run_id={run_id} thread_id={thread_id} user={user.identity}")
+    print(f"[create_run] scheduling background task run_id={run_id} thread_id={thread_id} user={user.identity}")
 
     # 어시스턴트 존재 여부를 검증하고 graph_id를 가져옵니다.
     # assistant UUID 대신 graph_id가 제공된 경우, 결정론적으로 매핑하고
@@ -609,9 +594,7 @@ async def get_run(
     # 백그라운드 작업이 업데이트한 최신 데이터를 가져오기 위해 refresh
     await session.refresh(run_orm)
 
-    print(
-        f"[get_run] found run status={run_orm.status} user={user.identity} thread_id={thread_id} run_id={run_id}"
-    )
+    print(f"[get_run] found run status={run_orm.status} user={user.identity} thread_id={thread_id} run_id={run_id}")
     # Pydantic으로 변환
     return Run.model_validate({c.name: getattr(run_orm, c.name) for c in run_orm.__table__.columns})
 
@@ -852,9 +835,7 @@ async def update_run(
         await streaming_service.cancel_run(run_id)
         print(f"[update_run] set DB status=cancelled run_id={run_id}")
         await session.execute(
-            update(RunORM)
-            .where(RunORM.run_id == str(run_id))
-            .values(status="cancelled", updated_at=datetime.now(UTC))
+            update(RunORM).where(RunORM.run_id == str(run_id)).values(status="cancelled", updated_at=datetime.now(UTC))
         )
         await session.commit()
         print(f"[update_run] commit done (cancelled) run_id={run_id}")
@@ -1105,9 +1086,7 @@ async def cancel_run_endpoint(
         await streaming_service.cancel_run(run_id)
         # 상태를 cancelled로 영속화
         await session.execute(
-            update(RunORM)
-            .where(RunORM.run_id == str(run_id))
-            .values(status="cancelled", updated_at=datetime.now(UTC))
+            update(RunORM).where(RunORM.run_id == str(run_id)).values(status="cancelled", updated_at=datetime.now(UTC))
         )
         await session.commit()
 
@@ -1262,9 +1241,7 @@ async def execute_run_async(
                 interrupt_before if isinstance(interrupt_before, list) else [interrupt_before]
             )
         if interrupt_after is not None:
-            run_config["interrupt_after"] = (
-                interrupt_after if isinstance(interrupt_after, list) else [interrupt_after]
-            )
+            run_config["interrupt_after"] = interrupt_after if isinstance(interrupt_after, list) else [interrupt_after]
 
         # 참고: multitask_strategy는 실행 생성 레벨에서 처리되며, 실행 레벨이 아닙니다
         # 동시 실행 동작을 제어하며, 그래프 실행 동작을 제어하지 않습니다
@@ -1348,6 +1325,29 @@ async def execute_run_async(
                 elif not isinstance(raw_event, tuple):
                     # 튜플이 아닌 이벤트는 values 모드
                     final_output = raw_event
+
+        # ──────────────────────────────────────────────────────────────────────────
+        # 스트림 완료 후 스레드 상태를 확인하여 interrupt 여부 판단
+        # ──────────────────────────────────────────────────────────────────────────
+        # LangGraph의 interrupt()는 이벤트에 __interrupt__를 추가하지만,
+        # Docker 환경 등에서는 이 이벤트가 제대로 전달되지 않는 경우가 있음.
+        # 더 확실한 방법은 스레드 상태의 'next' 필드를 확인하는 것.
+        #
+        # 참고: LangGraph issue #1395 - Docker 환경에서 __interrupt__ 이벤트 누락 문제
+        #       https://github.com/langchain-ai/langgraph/issues/1395
+        # ──────────────────────────────────────────────────────────────────────────
+        if not has_interrupt:
+            try:
+                thread_state = await graph.aget_state(cast("RunnableConfig", run_config))
+                # 'next' 필드가 비어있지 않으면 그래프가 중단되어 다음 노드를 기다리는 상태
+                if thread_state and hasattr(thread_state, "next") and thread_state.next:
+                    has_interrupt = True
+                    logger.info(
+                        f"[execute_run_async] 스레드 상태로 interrupt 감지: run_id={run_id}, next={thread_state.next}"
+                    )
+            except Exception as e:
+                # 스레드 상태 확인 실패 시 기존 이벤트 기반 감지 결과 사용
+                logger.warning(f"[execute_run_async] 스레드 상태 확인 실패: {e}, 이벤트 기반 감지 결과 사용")
 
         if has_interrupt:
             await update_run_status(run_id, "interrupted", output=final_output or {}, session=session)

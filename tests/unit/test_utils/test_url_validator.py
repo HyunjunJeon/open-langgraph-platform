@@ -1,4 +1,11 @@
-"""Unit tests for URL validator (SSRF protection)."""
+"""URL validator 유닛 테스트 (SSRF 보호).
+
+이 테스트 모듈은 SSRF(Server-Side Request Forgery) 공격을 방지하기 위한
+URL 검증 로직을 테스트합니다.
+
+테스트 환경에서는 실제 DNS 조회를 수행하지 않도록 skip_dns_check fixture를
+사용하여 외부 호스트명에 대한 테스트가 네트워크 환경에 의존하지 않도록 합니다.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
+import src.agent_server.utils.url_validator as url_validator_module
 from src.agent_server.utils.url_validator import (
     BLOCKED_HOSTNAMES,
     BLOCKED_IP_RANGES,
@@ -16,26 +24,54 @@ from src.agent_server.utils.url_validator import (
 )
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# 테스트 픽스처
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def skip_dns_check():
+    """외부 호스트명을 사용하는 테스트를 위해 DNS 해결 검사를 건너뜁니다.
+
+    테스트 환경(CI/CD, 격리된 네트워크 등)에서는 외부 도메인에 대한
+    DNS 조회가 실패할 수 있습니다. 이 픽스처는 SSRF_SKIP_DNS_CHECK
+    환경 변수를 True로 설정하여 DNS 해결 단계를 건너뛰도록 합니다.
+
+    Yields:
+        tuple: (validate_url_for_ssrf, is_safe_url) 함수들을 반환합니다.
+    """
+    with patch.object(url_validator_module, "SSRF_SKIP_DNS_CHECK", True):
+        yield url_validator_module.validate_url_for_ssrf, url_validator_module.is_safe_url
+
+
 class TestValidateUrlForSSRF:
-    """Test SSRF URL validation."""
+    """SSRF URL 검증 테스트.
 
-    # ==================== Valid URLs ====================
+    URL 검증 함수가 다양한 유형의 URL을 올바르게 처리하는지 확인합니다.
+    외부 도메인을 사용하는 테스트는 skip_dns_check fixture를 사용하여
+    네트워크 환경에 의존하지 않도록 합니다.
+    """
 
-    def test_valid_https_url(self) -> None:
-        """HTTPS URLs should pass validation."""
+    # ==================== 유효한 URL 테스트 ====================
+
+    def test_valid_https_url(self, skip_dns_check) -> None:
+        """HTTPS URL이 검증을 통과해야 합니다."""
+        validate_func, _ = skip_dns_check
         url = "https://api.example.com/v1/agents"
-        result = validate_url_for_ssrf(url)
+        result = validate_func(url)
         assert result == url
 
-    def test_valid_https_with_port(self) -> None:
-        """HTTPS URLs with standard ports should pass."""
-        assert validate_url_for_ssrf("https://api.example.com:443/path")
-        assert validate_url_for_ssrf("https://api.example.com:8443/path")
+    def test_valid_https_with_port(self, skip_dns_check) -> None:
+        """표준 포트를 가진 HTTPS URL이 통과해야 합니다."""
+        validate_func, _ = skip_dns_check
+        assert validate_func("https://api.example.com:443/path")
+        assert validate_func("https://api.example.com:8443/path")
 
-    def test_valid_http_when_allowed(self) -> None:
-        """HTTP URLs should pass when require_https=False."""
+    def test_valid_http_when_allowed(self, skip_dns_check) -> None:
+        """require_https=False일 때 HTTP URL이 통과해야 합니다."""
+        validate_func, _ = skip_dns_check
         url = "http://api.example.com/v1/agents"
-        result = validate_url_for_ssrf(url, require_https=False)
+        result = validate_func(url, require_https=False)
         assert result == url
 
     # ==================== Blocked Hostnames ====================
@@ -153,32 +189,41 @@ class TestValidateUrlForSSRF:
             with pytest.raises(SSRFValidationError):
                 validate_url_for_ssrf(url, require_https=False)
 
-    # ==================== Environment Variable ====================
+    # ==================== 환경 변수 테스트 ====================
 
     def test_respects_https_env_var_false(self) -> None:
-        """Should respect FEDERATION_REQUIRE_HTTPS=false."""
-        with patch.dict(os.environ, {"FEDERATION_REQUIRE_HTTPS": "false"}):
-            # Need to reimport to pick up env var change
+        """FEDERATION_REQUIRE_HTTPS=false 환경 변수를 존중해야 합니다.
+
+        이 테스트는 환경 변수 변경을 위해 모듈을 다시 로드합니다.
+        DNS 검사도 건너뛰도록 SSRF_SKIP_DNS_CHECK도 함께 설정합니다.
+        """
+        env_vars = {
+            "FEDERATION_REQUIRE_HTTPS": "false",
+            "SSRF_SKIP_DNS_CHECK": "true",  # DNS 검사 건너뛰기
+        }
+        with patch.dict(os.environ, env_vars):
+            # 환경 변수 변경을 적용하기 위해 모듈 다시 로드
             from importlib import reload
 
             import src.agent_server.utils.url_validator as module
 
             reload(module)
             try:
-                # Should now allow HTTP
+                # 이제 HTTP가 허용되어야 함
                 result = module.validate_url_for_ssrf("http://api.example.com")
                 assert result == "http://api.example.com"
             finally:
-                # Restore default
+                # 기본값으로 복원
                 reload(module)
 
 
 class TestIsSafeUrl:
-    """Test is_safe_url convenience function."""
+    """is_safe_url 편의 함수 테스트."""
 
-    def test_returns_true_for_valid_url(self) -> None:
-        """Should return True for valid URLs."""
-        assert is_safe_url("https://api.example.com") is True
+    def test_returns_true_for_valid_url(self, skip_dns_check) -> None:
+        """유효한 URL에 대해 True를 반환해야 합니다."""
+        _, is_safe_func = skip_dns_check
+        assert is_safe_func("https://api.example.com") is True
 
     def test_returns_false_for_blocked_url(self) -> None:
         """Should return False for blocked URLs."""

@@ -444,7 +444,11 @@ class TestGracefulDegradation:
 
     @pytest.mark.asyncio
     async def test_passes_through_when_redis_unavailable(self, middleware):
-        """Test that requests pass through when Redis is unavailable."""
+        """Redis가 사용 불가능하고 fallback=skip일 때 요청이 통과해야 합니다.
+
+        참고: RATE_LIMIT_FALLBACK 기본값은 "error" (fail-closed)입니다.
+        요청이 통과하려면 "skip" (fail-open)으로 설정해야 합니다.
+        """
         mw, app = middleware
 
         with patch("agent_server.middleware.rate_limit.rate_limiter") as mock_limiter:
@@ -454,7 +458,12 @@ class TestGracefulDegradation:
             receive = AsyncMock()
             send = AsyncMock()
 
-            with patch("agent_server.middleware.rate_limit.RATE_LIMIT_ENABLED", True):
+            # RATE_LIMIT_FALLBACK="skip"이어야 Redis 실패 시 요청이 통과함
+            # 기본값 "error"는 503 Service Unavailable을 반환함
+            with (
+                patch("agent_server.middleware.rate_limit.RATE_LIMIT_ENABLED", True),
+                patch("agent_server.middleware.rate_limit.RATE_LIMIT_FALLBACK", "skip"),
+            ):
                 await mw(scope, receive, send)
 
             app.assert_called_once_with(scope, receive, send)
