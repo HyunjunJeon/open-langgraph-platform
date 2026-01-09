@@ -51,7 +51,6 @@
 ### Operations
 | 상태 | 항목 | 우선순위 |
 |------|------|----------|
-| 💡 | Helm Chart | `[P3]` |
 | 💡 | Prometheus 메트릭 | `[P3]` |
 | 💡 | Grafana 대시보드 | `[P3]` |
 
@@ -117,12 +116,6 @@ A2A 핵심 프로토콜이 완성되어, 이를 기반으로 한 확장 기능�
 | 💡 | Graph 시각화 패널 | `[P3]` |
 | 💡 | 브레이크포인트 디버깅 | `[P3]` |
 
-### Documentation
-| 상태 | 항목 | 우선순위 |
-|------|------|----------|
-| ✅ | 개발자 가이드, 마이그레이션 치트시트 | - |
-| ✅ | Docker Compose 5분 셋업 | - |
-
 ---
 
 ## 🏢 Track 4: Enterprise
@@ -139,15 +132,6 @@ A2A 핵심 프로토콜이 완성되어, 이를 기반으로 한 확장 기능�
 | ✅ | Multi-tenancy org_id 전파 (Assistants, Threads, Runs) | `[P1]` |
 | ✅ | Row-level security (PostgreSQL RLS) | `[P1]` |
 | ✅ | 리소스 쿼터 - Rate Limiting (Redis 기반) | `[P1]` |
-
-> **Rate Limiting 구현 완료** (8개 파일):
-> - `middleware/rate_limit.py` - ASGI 미들웨어 (505 lines)
-> - `core/rate_limiter.py` - Redis 카운터 기반 제한기 (558 lines)
-> - `core/rate_limit_enforcer.py` - 제한 적용 로직
-> - `services/rate_limit_rule_service.py` - 규칙 관리 서비스
-> - `services/rate_limit_analytics_service.py` - 분석 서비스
-> - `api/rate_limit_rules.py` - 규칙 관리 API
-> - `models/rate_limit.py`, `models/rate_limit_rules.py` - 데이터 모델
 
 ### RBAC (Role-Based Access Control)
 | 상태 | 항목 | 우선순위 |
@@ -179,7 +163,8 @@ A2A 핵심 프로토콜이 완성되어, 이를 기반으로 한 확장 기능�
 |------|------|----------|
 | ✅ | Langfuse 통합 | - |
 | ✅ | OpenTelemetry 통합 | `[P2]` |
-| 💡 | LangSmith 호환 | `[P3]` |
+| 💡 | LangGraph Studio 기능 | `[P2]` |
+| 💡 | LangSmith Deployment 지원 내용 호환 | `[P3]` |
 
 ### Custom Endpoints
 | 상태 | 항목 | 우선순위 |
@@ -188,40 +173,6 @@ A2A 핵심 프로토콜이 완성되어, 이를 기반으로 한 확장 기능�
 | ✅ | FastAPI 동적 라우팅 생성 | `[P1]` |
 | ✅ | Webhook 수신 패턴 (Signature Verification) | `[P2]` |
 | 💡 | OpenAPI 문서 자동 생성 | `[P2]` |
-
----
-
-## 📊 Success Metrics
-
-프로젝트 성공을 측정하는 지표입니다.
-
-### Adoption
-| 지표 | 현재 | 목표 |
-|------|------|------|
-| GitHub Stars | - | 1,000+ |
-| Docker Hub pulls | - | 10,000+ |
-| Weekly active deployments | - | 100+ |
-
-### Quality
-| 지표 | 현재 | 목표 |
-|------|------|------|
-| Test coverage | 1100+ tests | 1200+ tests |
-| API 준수율 | 100% (39/39) | 100% |
-| Bug resolution time | - | < 7 days |
-| Production uptime | - | 99.9% |
-
-### Community
-| 지표 | 현재 | 목표 |
-|------|------|------|
-| Contributors | - | 20+ |
-| Discord/Slack members | - | 500+ |
-
-### Performance
-| 지표 | 현재 | 목표 |
-|------|------|------|
-| Metadata response time | - | < 200ms |
-| Streaming first token | - | < 2s |
-| Concurrent streams | - | 10k+ |
 
 ---
 

@@ -52,7 +52,7 @@ git clone https://github.com/HyunjunJeon/open-langgraph-platform.git
 cd open-langgraph
 
 # 환경 및 의존성 동기화
-uv sync --all-extras
+uv sync --all-extras --frozen
 
 # 환경 활성화
 source .venv/bin/activate  # Mac/Linux
@@ -159,8 +159,8 @@ docker compose up open-langgraph-platform
 ```text
 Client → FastAPI → LangGraph SDK → PostgreSQL
  ↓         ↓           ↓             ↓
-Agent    HTTP     State        Persistent
-SDK      API    Management      Storage
+Agent    HTTP        State        Persistent
+ SDK      API       Management      Storage
 ```
 
 ### 구성 요소
