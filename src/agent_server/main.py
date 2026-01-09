@@ -38,10 +38,10 @@ LangGraph 기반 에이전트를 HTTP API로 노출하며, Agent Protocol 표준
     # 프로덕션 실행 (포트 지정)
     PORT=8000 uvicorn src.agent_server.main:app
 
-참고:
-    - LangGraph 그래프는 open_langgraph.json에서 정의
-    - 인증 설정은 auth.py 및 환경변수(AUTH_TYPE)로 제어
-    - 데이터베이스 마이그레이션은 scripts/migrate.py로 관리
+	참고:
+	    - LangGraph 그래프는 open_langgraph.json에서 정의
+	    - 인증 설정은 auth.py 및 환경변수(AUTH_TYPE)로 제어
+	    - 데이터베이스 마이그레이션은 Alembic(`alembic/`, `alembic.ini`)으로 관리
 """
 
 import asyncio

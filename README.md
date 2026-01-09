@@ -230,3 +230,7 @@ OPENAI_API_KEY=sk-...
 ## 로드맵
 
 자세한 계획과 진행 상황은 [ROADMAP.md](ROADMAP.md)를 참조하세요.
+
+## 기여하기
+
+기여 가이드는 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요.

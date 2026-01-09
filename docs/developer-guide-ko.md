@@ -147,7 +147,7 @@ make ci-check
 
 ## 🔧 데이터베이스 마이그레이션 명령어
 
-### 커스텀 스크립트 사용 (권장)
+### uv run alembic 사용 (권장)
 
 **⚠️ 중요**: 마이그레이션 명령을 실행하기 전에 가상환경이 활성화되어 있는지 확인하세요:
 
@@ -156,26 +156,27 @@ source .venv/bin/activate  # Mac/Linux
 # 또는 .venv/Scripts/activate  # Windows
 ```
 
-Alembic 명령을 래핑한 편리한 스크립트를 제공합니다:
+uv로 Alembic을 실행할 수 있습니다:
 
 ```bash
 # 대기 중인 모든 마이그레이션 적용
-python3 scripts/migrate.py upgrade
+uv run alembic upgrade head
 
 # 새 마이그레이션 생성
-python3 scripts/migrate.py revision --autogenerate -m "Add user preferences"
+uv run alembic revision --autogenerate -m "Add user preferences"
 
 # 마지막 마이그레이션 롤백
-python3 scripts/migrate.py downgrade
+uv run alembic downgrade -1
 
 # 마이그레이션 이력 표시
-python3 scripts/migrate.py history
+uv run alembic history --verbose
 
 # 현재 버전 표시
-python3 scripts/migrate.py current
+uv run alembic current
 
 # 데이터베이스 리셋 (⚠️ 파괴적 - 모든 데이터 삭제)
-python3 scripts/migrate.py reset
+uv run alembic downgrade base
+uv run alembic upgrade head
 ```
 
 ### Alembic 직접 사용
@@ -222,7 +223,7 @@ docker compose up -d open-langgraph
 docker compose up postgres -d
 
 # 2. 새로운 마이그레이션 적용
-python3 scripts/migrate.py upgrade
+uv run alembic upgrade head
 
 # 3. 개발 서버 시작
 python3 run_server.py
@@ -243,13 +244,13 @@ python3 run_server.py
 # 1. 코드/모델을 변경
 
 # 2. 마이그레이션 생성
-python3 scripts/migrate.py revision --autogenerate -m "Add new feature"
+uv run alembic revision --autogenerate -m "Add new feature"
 
 # 3. 생성된 마이그레이션 파일 검토
 # 확인: alembic/versions/XXXX_add_new_feature.py
 
 # 4. 마이그레이션 적용
-python3 scripts/migrate.py upgrade
+uv run alembic upgrade head
 
 # 5. 변경사항 테스트
 python3 run_server.py
@@ -259,12 +260,12 @@ python3 run_server.py
 
 ```bash
 # 업그레이드 경로 테스트
-python3 scripts/migrate.py reset  # 새로 시작
-python3 scripts/migrate.py upgrade  # 모두 적용
+uv run alembic downgrade base  # 새로 시작
+uv run alembic upgrade head  # 모두 적용
 
 # 다운그레이드 경로 테스트
-python3 scripts/migrate.py downgrade  # 하나 롤백
-python3 scripts/migrate.py upgrade    # 다시 적용
+uv run alembic downgrade -1  # 하나 롤백
+uv run alembic upgrade head    # 다시 적용
 ```
 
 ### 한국 개발자를 위한 워크플로우 팁
@@ -273,7 +274,7 @@ python3 scripts/migrate.py upgrade    # 다시 적용
 
 **숙련자**: 로컬 개발 옵션을 사용하면 각 서비스를 개별적으로 제어할 수 있어 디버깅과 성능 최적화가 쉽습니다.
 
-**팀 협업 시**: 항상 마이그레이션 파일을 커밋하고, pull 받은 후에는 `python3 scripts/migrate.py upgrade`를 실행하여 최신 스키마를 적용하세요.
+**팀 협업 시**: 항상 마이그레이션 파일을 커밋하고, pull 받은 후에는 `uv run alembic upgrade head`를 실행하여 최신 스키마를 적용하세요.
 
 ## 📁 프로젝트 구조
 
@@ -287,8 +288,6 @@ open-langgraph/
 │   ├── core/database.py       # 데이터베이스 연결
 │   ├── api/                   # API 엔드포인트
 │   └── models/                # 데이터 모델
-├── scripts/
-│   └── migrate.py             # 마이그레이션 헬퍼 스크립트
 ├── docs/
 │   ├── developer-guide.md     # 원본 가이드
 │   ├── developer-guide-ko.md  # 이 파일
@@ -301,7 +300,6 @@ open-langgraph/
 
 - **alembic/versions/**: 모든 데이터베이스 스키마 변경사항이 저장되는 곳입니다. 각 파일은 하나의 마이그레이션을 나타냅니다.
 - **src/agent_server/**: 실제 애플리케이션 로직이 있는 곳입니다. API 엔드포인트, 비즈니스 로직, 데이터 모델이 여기에 있습니다.
-- **scripts/**: 개발을 도와주는 유틸리티 스크립트들이 있습니다.
 
 ## 🔍 마이그레이션 파일 이해하기
 
@@ -362,7 +360,7 @@ docker compose logs open-langgraph
 
 # 해결방법: 디버깅을 위해 수동으로 마이그레이션 실행
 docker compose up postgres -d
-python3 scripts/migrate.py upgrade
+uv run alembic upgrade head
 python3 run_server.py
 ```
 
@@ -401,29 +399,31 @@ docker compose up postgres -d
 
 ```bash
 # 해결방법: 현재 상태 확인
-python3 scripts/migrate.py current
+uv run alembic current
 
 # 필요시 리셋 후 재적용
-python3 scripts/migrate.py reset
+uv run alembic downgrade base
+uv run alembic upgrade head
 ```
 
 **문제**: 마이그레이션 충돌
 
 ```bash
 # 해결방법: 마이그레이션 이력 확인
-python3 scripts/migrate.py history
+uv run alembic history --verbose
 
 # 필요시 리셋 (⚠️ 파괴적)
-python3 scripts/migrate.py reset
+uv run alembic downgrade base
+uv run alembic upgrade head
 ```
 
 ### 권한 문제
 
-**문제**: 마이그레이션 스크립트에서 "Permission denied"
+**문제**: 마이그레이션 실행 시 환경/권한 관련 오류
 
 ```bash
-# 해결방법: 스크립트를 실행 가능하게 만들기
-chmod +x scripts/migrate.py
+# 해결방법: uv로 Alembic 실행 (가상환경 자동 선택)
+uv run alembic current
 ```
 
 ### 한국 개발자를 위한 추가 문제 해결
@@ -443,7 +443,7 @@ source .venv/bin/activate
 ```bash
 # 해결방법: 최신 코드를 pull하고 마이그레이션 적용
 git pull
-python3 scripts/migrate.py upgrade
+uv run alembic upgrade head
 ```
 
 ## 🧪 변경사항 테스트하기
@@ -465,16 +465,16 @@ pytest --cov=src/agent_server
 
 ```bash
 # 1. 테스트 마이그레이션 생성
-python3 scripts/migrate.py revision --autogenerate -m "Test feature"
+uv run alembic revision --autogenerate -m "Test feature"
 
 # 2. 적용
-python3 scripts/migrate.py upgrade
+uv run alembic upgrade head
 
 # 3. 애플리케이션 테스트
 python3 run_server.py
 
 # 4. 문제가 있으면 롤백
-python3 scripts/migrate.py downgrade
+uv run alembic downgrade -1
 ```
 
 ### 테스트 시 체크리스트
@@ -493,7 +493,7 @@ python3 scripts/migrate.py downgrade
 
    ```bash
    # 스테이징 데이터베이스에 적용
-   python3 scripts/migrate.py upgrade
+   uv run alembic upgrade head
    ```
 
 2. **프로덕션 데이터베이스 백업**:
@@ -513,10 +513,10 @@ python3 scripts/migrate.py downgrade
 
 ```bash
 # 마이그레이션 상태 확인
-python3 scripts/migrate.py current
+uv run alembic current
 
 # 마이그레이션 이력 보기
-python3 scripts/migrate.py history
+uv run alembic history --verbose
 ```
 
 ### 한국 개발자를 위한 배포 가이드
@@ -542,7 +542,7 @@ python3 scripts/migrate.py history
 1. **가능하면 항상 autogenerate 사용**:
 
    ```bash
-   python3 scripts/migrate.py revision --autogenerate -m "Descriptive message"
+   uv run alembic revision --autogenerate -m "Descriptive message"
    ```
 
 2. **생성된 마이그레이션 검토**:
@@ -555,10 +555,10 @@ python3 scripts/migrate.py history
 
    ```bash
    # 좋은 예
-   python3 scripts/migrate.py revision --autogenerate -m "Add user preferences table"
+   uv run alembic revision --autogenerate -m "Add user preferences table"
 
    # 나쁜 예
-   python3 scripts/migrate.py revision --autogenerate -m "fix"
+   uv run alembic revision --autogenerate -m "fix"
    ```
 
 ### 코드 구성
@@ -616,14 +616,15 @@ python3 scripts/migrate.py history
 2. **데이터베이스 상태 확인**:
 
    ```bash
-   python3 scripts/migrate.py current
-   python3 scripts/migrate.py history
+   uv run alembic current
+   uv run alembic history --verbose
    ```
 
 3. **필요시 리셋** (⚠️ 파괴적):
 
    ```bash
-   python3 scripts/migrate.py reset
+   uv run alembic downgrade base
+   uv run alembic upgrade head
    ```
 
 4. **도움 요청**:
@@ -637,10 +638,10 @@ python3 scripts/migrate.py history
 A: 새로운 마이그레이션이 있을 때만 실행하면 됩니다. Docker 설정은 자동으로 실행합니다.
 
 **Q: 실수로 데이터베이스를 망가뜨렸다면?**
-A: `python3 scripts/migrate.py reset`을 사용하여 새로 시작하세요 (⚠️ 모든 데이터 손실).
+A: `uv run alembic downgrade base && uv run alembic upgrade head`로 새로 시작하세요 (⚠️ 모든 데이터 손실).
 
 **Q: 대기 중인 마이그레이션을 어떻게 알 수 있나요?**
-A: `python3 scripts/migrate.py history`를 사용하여 모든 마이그레이션과 상태를 확인하세요.
+A: `uv run alembic history --verbose`로 마이그레이션 이력/현재 상태를 확인하세요.
 
 **Q: 기존 마이그레이션을 수정할 수 있나요?**
 A: 일반적으로 불가능합니다 - 대신 새 마이그레이션을 생성하세요. 기존 마이그레이션 수정은 문제를 일으킬 수 있습니다.
@@ -665,22 +666,23 @@ A: 즉시 롤백하고, 백업에서 복원하세요. 그런 다음 스테이징
 
 ```bash
 # 대기 중인 모든 마이그레이션 적용
-python3 scripts/migrate.py upgrade
+uv run alembic upgrade head
 
 # 새 마이그레이션 생성
-python3 scripts/migrate.py revision --autogenerate -m "Description"
+uv run alembic revision --autogenerate -m "Description"
 
 # 마지막 마이그레이션 롤백
-python3 scripts/migrate.py downgrade
+uv run alembic downgrade -1
 
 # 마이그레이션 이력 표시
-python3 scripts/migrate.py history
+uv run alembic history --verbose
 
 # 현재 버전 표시
-python3 scripts/migrate.py current
+uv run alembic current
 
 # 데이터베이스 리셋 (⚠️ 파괴적 - 모든 데이터 손실)
-python3 scripts/migrate.py reset
+uv run alembic downgrade base
+uv run alembic upgrade head
 ```
 
 ### 일일 개발 워크플로우
@@ -699,7 +701,7 @@ docker compose up open-langgraph
 docker compose up postgres -d
 
 # 마이그레이션 적용
-python3 scripts/migrate.py upgrade
+uv run alembic upgrade head
 
 # 서버 시작
 python3 run_server.py
@@ -710,22 +712,22 @@ python3 run_server.py
 **새 테이블 추가:**
 
 ```bash
-python3 scripts/migrate.py revision --autogenerate -m "Add users table"
-python3 scripts/migrate.py upgrade
+uv run alembic revision --autogenerate -m "Add users table"
+uv run alembic upgrade head
 ```
 
 **컬럼 추가:**
 
 ```bash
-python3 scripts/migrate.py revision --autogenerate -m "Add email to users"
-python3 scripts/migrate.py upgrade
+uv run alembic revision --autogenerate -m "Add email to users"
+uv run alembic upgrade head
 ```
 
 **마이그레이션 테스트:**
 
 ```bash
-python3 scripts/migrate.py reset
-python3 scripts/migrate.py upgrade
+uv run alembic downgrade base
+uv run alembic upgrade head
 ```
 
 ### 문제 해결 빠른 참조
@@ -733,9 +735,8 @@ python3 scripts/migrate.py upgrade
 | 문제                   | 해결방법                              |
 | ---------------------- | ------------------------------------- |
 | 데이터베이스 연결 불가 | `docker compose up postgres -d`       |
-| 마이그레이션 실패      | `python3 scripts/migrate.py current`  |
-| 권한 거부됨            | `chmod +x scripts/migrate.py`         |
-| 데이터베이스 손상      | `python3 scripts/migrate.py reset` ⚠️ |
+| 마이그레이션 실패      | `uv run alembic current`              |
+| 데이터베이스 손상      | `uv run alembic downgrade base && uv run alembic upgrade head` ⚠️ |
 | 가상환경 미활성화      | `source .venv/bin/activate`           |
 | 모듈을 찾을 수 없음    | `uv install` 후 가상환경 재활성화     |
 
@@ -769,7 +770,7 @@ uv install
 docker compose up postgres -d
 
 # 마이그레이션 적용
-python3 scripts/migrate.py upgrade
+uv run alembic upgrade head
 ```
 
 ### 코드 품질 명령어

@@ -78,21 +78,22 @@ alembic.util.exc.CommandError: Can't locate revision identified by 'xxx'
 source .venv/bin/activate
 
 # 현재 버전 확인
-python3 scripts/migrate.py current
+uv run alembic current
 
 # 마이그레이션 이력 확인
-python3 scripts/migrate.py history
+uv run alembic history --verbose
 ```
 
 2. 마이그레이션 재적용:
 ```bash
 # 최신 버전으로 업그레이드
-python3 scripts/migrate.py upgrade
+uv run alembic upgrade head
 ```
 
 3. 개발 환경에서 데이터베이스 리셋 (주의: 모든 데이터 삭제):
 ```bash
-python3 scripts/migrate.py reset
+uv run alembic downgrade base
+uv run alembic upgrade head
 ```
 
 4. 마이그레이션 파일이 손상된 경우:

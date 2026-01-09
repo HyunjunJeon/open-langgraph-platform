@@ -216,13 +216,13 @@ class DatabaseManager:
 
 ```bash
 # 마이그레이션 적용
-python3 scripts/migrate.py upgrade
+uv run alembic upgrade head
 
 # 새 마이그레이션 생성
-python3 scripts/migrate.py revision --autogenerate -m "description"
+uv run alembic revision --autogenerate -m "description"
 
 # 상태 확인
-python3 scripts/migrate.py current
+uv run alembic current
 ```
 
 **마이그레이션 파일 구조**:

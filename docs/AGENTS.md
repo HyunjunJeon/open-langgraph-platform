@@ -1,257 +1,242 @@
-# OpenSource LangGraph Platform 문서 가이드 (Documentation Guide)
+# Documentation Guide — Open LangGraph Platform
 
-이 문서는 OpenSource LangGraph Platform 프로젝트의 `docs/` 디렉토리에 있는 모든 문서의 역할과 사용 방법을 안내합니다.
-
----
-
-## 📚 문서 개요
-
-`docs/` 폴더는 OpenSource LangGraph Platform 프로젝트의 **모든 기술 문서와 가이드**를 포함합니다. 개발자, 기여자, 사용자가 프로젝트를 이해하고 효과적으로 작업할 수 있도록 체계적으로 구성되어 있습니다.
-
-### 문서 디렉토리의 역할
-
-- **학습 자료**: 신규 개발자를 위한 온보딩 가이드
-- **참조 문서**: 일상적인 개발 작업을 위한 빠른 참조
-- **아키텍처 가이드**: 시스템 설계 및 구조 이해
-- **문제 해결**: 일반적인 문제와 해결 방법
-- **실전 예제**: 구체적인 사용 사례와 코드 예제
+This document explains what lives in the `docs/` directory and how to navigate it.
 
 ---
 
-## 📖 문서 목록
+## Overview
 
-### 핵심 문서 (Core Documents)
+The `docs/` folder contains the project’s technical documentation and guides for developers, contributors, and operators.
 
-| 문서 | 목적 | 대상 독자 |
-|------|------|----------|
-| [README.md](README.md) | 문서 허브 및 시작점 | 모든 사용자 |
-| [developer-guide.md](developer-guide.md) | 개발 환경 설정 및 워크플로우 (영문) | 개발자 |
-| [developer-guide-ko.md](developer-guide-ko.md) | 개발 환경 설정 및 워크플로우 (한글) | 개발자 |
-
-### 아키텍처 & 설계 (Architecture & Design)
-
-| 문서 | 목적 | 대상 독자 |
-|------|------|----------|
-| [architecture-ko.md](architecture-ko.md) | 시스템 아키텍처 상세 설명 | 개발자, 아키텍트 |
-
-### 개발 도구 & 품질 (Development Tools & Quality)
-
-| 문서 | 목적 | 대상 독자 |
-|------|------|----------|
-| [code-quality.md](code-quality.md) | 코드 품질 기준 및 도구 (영문) | 기여자, 개발자 |
-| [code-quality-ko.md](code-quality-ko.md) | 코드 품질 기준 및 도구 (한글) | 기여자, 개발자 |
-| [migration-cheatsheet.md](migration-cheatsheet.md) | 데이터베이스 마이그레이션 빠른 참조 (영문) | 개발자 |
-| [migration-cheatsheet-ko.md](migration-cheatsheet-ko.md) | 데이터베이스 마이그레이션 빠른 참조 (한글) | 개발자 |
-
-### 관찰성 & 모니터링 (Observability & Monitoring)
-
-| 문서 | 목적 | 대상 독자 |
-|------|------|----------|
-| [langfuse-usage.md](langfuse-usage.md) | Langfuse 추적 및 관찰성 설정 (영문) | 개발자, DevOps |
-| [langfuse-usage-ko.md](langfuse-usage-ko.md) | Langfuse 추적 및 관찰성 설정 (한글) | 개발자, DevOps |
-
-### 문제 해결 & 예제 (Troubleshooting & Examples)
-
-| 문서 | 목적 | 대상 독자 |
-|------|------|----------|
-| [troubleshooting-ko.md](troubleshooting-ko.md) | 일반적인 문제 및 해결 방법 | 모든 개발자 |
-| [examples-ko.md](examples-ko.md) | 실전 코드 예제 및 시나리오 | 개발자, 사용자 |
+### What `docs/` is for
+- Learning: onboarding guides for new developers
+- Reference: quick lookups for daily work
+- Architecture: system design and structure
+- Troubleshooting: common issues and fixes
+- Examples: concrete scenarios and code walkthroughs
 
 ---
 
-## 🗺️ 문서 읽기 순서 (Recommended Learning Path)
+## Document Index
 
-### 1️⃣ 신규 개발자 (New Developers)
+### Core Documents
 
-처음 시작하는 경우 다음 순서로 읽는 것을 추천합니다:
+| Document | Purpose | Audience |
+|---------|---------|----------|
+| [README.md](README.md) | Docs hub and starting point | Everyone |
+| [developer-guide.md](developer-guide.md) | Dev environment and workflow (English) | Developers |
+| [developer-guide-ko.md](developer-guide-ko.md) | Dev environment and workflow (Korean) | Developers |
+| [api-reference.md](api-reference.md) | API reference entry point (English) | Everyone |
+| [api-reference-ko.md](api-reference-ko.md) | API reference entry point (Korean) | Everyone |
 
-```
-1. README.md (문서 허브 이해)
-   ↓
-2. developer-guide-ko.md (개발 환경 설정)
-   ↓
-3. code-quality-ko.md (코드 표준 이해)
-   ↓
-4. migration-cheatsheet-ko.md (마이그레이션 명령어 참조)
-   ↓
-5. examples-ko.md (실전 예제 학습)
-```
+### Architecture & Design
 
-**목표**: 5분 안에 개발 환경을 구축하고, 첫 API 호출을 성공시키기
+| Document | Purpose | Audience |
+|---------|---------|----------|
+| [architecture.md](architecture.md) | System architecture (English) | Developers, architects |
+| [architecture-ko.md](architecture-ko.md) | System architecture (Korean) | Developers, architects |
 
-### 2️⃣ 아키텍처 이해 (Architecture Understanding)
+### Development Tools & Quality
 
-시스템 설계와 구조를 깊이 이해하고 싶은 경우:
+| Document | Purpose | Audience |
+|---------|---------|----------|
+| [code-quality.md](code-quality.md) | Code quality standards and tools (English) | Contributors, developers |
+| [code-quality-ko.md](code-quality-ko.md) | Code quality standards and tools (Korean) | Contributors, developers |
+| [migration-cheatsheet.md](migration-cheatsheet.md) | DB migration quick reference (English) | Developers |
+| [migration-cheatsheet-ko.md](migration-cheatsheet-ko.md) | DB migration quick reference (Korean) | Developers |
 
-```
-1. architecture-ko.md (시스템 아키텍처)
-   ↓
-2. developer-guide-ko.md (개발 워크플로우)
-   ↓
-3. examples-ko.md (아키텍처 실전 적용)
-```
+### Observability & Monitoring
 
-**목표**: LangGraph와 FastAPI의 통합 패턴 이해하기
+| Document | Purpose | Audience |
+|---------|---------|----------|
+| [langfuse-usage.md](langfuse-usage.md) | Langfuse tracing/observability setup (English) | Developers, DevOps |
+| [langfuse-usage-ko.md](langfuse-usage-ko.md) | Langfuse tracing/observability setup (Korean) | Developers, DevOps |
 
-### 3️⃣ 기여자 (Contributors)
+### Security & Operations
 
-프로젝트에 기여하고자 하는 경우:
+| Document | Purpose | Audience |
+|---------|---------|----------|
+| [audit-logging.md](audit-logging.md) | Audit logging design/operations guide (English) | Security, DevOps, developers |
+| [rate-limiting.md](rate-limiting.md) | Rate limiting configuration/behavior (English) | DevOps, developers |
 
-```
-1. code-quality-ko.md (코드 품질 기준)
-   ↓
-2. developer-guide-ko.md (개발 워크플로우)
-   ↓
-3. migration-cheatsheet-ko.md (마이그레이션 작업)
-   ↓
-4. ../CONTRIBUTING.md (기여 가이드)
-```
+### Troubleshooting & Examples
 
-**목표**: PR 제출 전 모든 품질 기준 충족하기
-
-### 4️⃣ 프로덕션 배포 (Production Deployment)
-
-프로덕션 환경에 배포하는 경우:
-
-```
-1. developer-guide-ko.md (배포 섹션)
-   ↓
-2. langfuse-usage-ko.md (관찰성 설정)
-   ↓
-3. troubleshooting-ko.md (문제 해결)
-   ↓
-4. migration-cheatsheet-ko.md (마이그레이션 전략)
-```
-
-**목표**: 안전하고 모니터링 가능한 프로덕션 배포
-
-### 5️⃣ 일상적인 개발 작업 (Daily Development)
-
-자주 참조하게 될 문서:
-
-- **빠른 명령어 참조**: migration-cheatsheet-ko.md
-- **문제 발생 시**: troubleshooting-ko.md
-- **코드 리뷰 전**: code-quality-ko.md
-- **새로운 기능 구현**: examples-ko.md
+| Document | Purpose | Audience |
+|---------|---------|----------|
+| [troubleshooting-ko.md](troubleshooting-ko.md) | Troubleshooting guide (Korean only for now) | Developers |
+| [examples-ko.md](examples-ko.md) | Practical examples/scenarios (Korean only for now) | Developers, users |
 
 ---
 
-## 🌐 한글/영어 버전 매핑 (Korean/English Version Mapping)
+## Recommended Reading Paths
 
-주요 문서에 대해 **한글과 영어 버전을 모두 제공**합니다.
+### New developers
 
-### 문서 버전 대조표
+```
+1. README.md
+   ↓
+2. developer-guide.md (or developer-guide-ko.md)
+   ↓
+3. code-quality.md (or code-quality-ko.md)
+   ↓
+4. migration-cheatsheet.md (or migration-cheatsheet-ko.md)
+   ↓
+5. examples-ko.md (Korean only for now)
+```
 
-| 한글 문서 | 영어 문서 | 내용 |
-|-----------|-----------|------|
-| [developer-guide-ko.md](developer-guide-ko.md) | [developer-guide.md](developer-guide.md) | 개발자 가이드 |
-| [code-quality-ko.md](code-quality-ko.md) | [code-quality.md](code-quality.md) | 코드 품질 가이드 |
-| [migration-cheatsheet-ko.md](migration-cheatsheet-ko.md) | [migration-cheatsheet.md](migration-cheatsheet.md) | 마이그레이션 치트시트 |
-| [langfuse-usage-ko.md](langfuse-usage-ko.md) | [langfuse-usage.md](langfuse-usage.md) | Langfuse 사용법 |
+Goal: set up the environment quickly and make your first API call.
 
-### 한글 전용 문서 (Korean Only)
+### Architecture deep dive
 
-다음 문서는 현재 **한글 버전만 제공**됩니다:
+```
+1. architecture.md (or architecture-ko.md)
+   ↓
+2. developer-guide.md (or developer-guide-ko.md)
+   ↓
+3. examples-ko.md (Korean only for now)
+```
 
-- [architecture-ko.md](architecture-ko.md) - 아키텍처 가이드
-- [troubleshooting-ko.md](troubleshooting-ko.md) - 문제 해결 가이드
-- [examples-ko.md](examples-ko.md) - 실전 예제 가이드
+Goal: understand the integration pattern between LangGraph and FastAPI.
 
-### 언어 선택 가이드
+### Contributors
 
-- **한글이 편한 경우**: `-ko.md` 파일 사용
-- **영어가 편한 경우**: 파일명에 `-ko`가 없는 영문 버전 사용
+```
+1. code-quality.md (or code-quality-ko.md)
+   ↓
+2. developer-guide.md (or developer-guide-ko.md)
+   ↓
+3. migration-cheatsheet.md (or migration-cheatsheet-ko.md)
+   ↓
+4. ../CONTRIBUTING.md
+```
+
+Goal: meet all quality standards before opening a PR.
+
+### Production deployment
+
+```
+1. developer-guide.md (deployment sections)
+   ↓
+2. langfuse-usage.md (or langfuse-usage-ko.md)
+   ↓
+3. troubleshooting-ko.md (Korean only for now)
+   ↓
+4. migration-cheatsheet.md (or migration-cheatsheet-ko.md)
+```
+
+Goal: deploy safely with monitoring and a migration strategy.
+
+### Daily work (quick links)
+- Migration quick reference: `migration-cheatsheet.md` / `migration-cheatsheet-ko.md`
+- Troubleshooting: `troubleshooting-ko.md`
+- Before code review: `code-quality.md` / `code-quality-ko.md`
+- Implementing new features: `examples-ko.md`
 
 ---
 
-## 문서 템플릿 (Document Templates)
+## Korean/English Mapping
 
-### 새 가이드 문서 템플릿
+For major documents, the project provides both Korean and English versions.
+
+| Korean | English | Notes |
+|--------|---------|-------|
+| [developer-guide-ko.md](developer-guide-ko.md) | [developer-guide.md](developer-guide.md) | Developer guide |
+| [code-quality-ko.md](code-quality-ko.md) | [code-quality.md](code-quality.md) | Code quality |
+| [migration-cheatsheet-ko.md](migration-cheatsheet-ko.md) | [migration-cheatsheet.md](migration-cheatsheet.md) | Migration cheat sheet |
+| [langfuse-usage-ko.md](langfuse-usage-ko.md) | [langfuse-usage.md](langfuse-usage.md) | Langfuse usage |
+
+Korean-only (for now):
+- [architecture-ko.md](architecture-ko.md) has an English version: [architecture.md](architecture.md)
+- [troubleshooting-ko.md](troubleshooting-ko.md)
+- [examples-ko.md](examples-ko.md)
+
+Language selection:
+- Prefer the English version when available (no `-ko` in the filename).
+- Use `-ko.md` when you need the Korean version.
+
+---
+
+## Document Templates
+
+### General guide template
 
 ```markdown
-# [문서 제목]
+# [Title]
 
-[간단한 소개 - 이 문서가 다루는 내용]
+[Short intro: what this document covers]
 
-## 목차
-
-- [섹션 1](#섹션-1)
-- [섹션 2](#섹션-2)
-
----
-
-## 섹션 1
-
-[내용]
-
-### 하위 섹션
-
-[상세 내용]
-
-```bash
-# 코드 예제
-```
-
-## 섹션 2
-
-[내용]
+## Contents
+- [Section 1](#section-1)
+- [Section 2](#section-2)
 
 ---
 
-## 참고 자료
+## Section 1
 
-- [관련 문서 링크]
-- [외부 리소스 링크]
+[Content]
 
+### Subsection
+
+[Details]
+
+~~~bash
+# Code example
+~~~
+
+## Section 2
+
+[Content]
+
+---
+
+## References
+- [Related document]
+- [External resource]
 ```
 
-### 문제 해결 문서 템플릿
+### Troubleshooting template
 
 ```markdown
-# [문제 제목]
+# [Issue Title]
 
-**증상:**
-```
+**Symptoms**
+~~~text
+[Error message or symptom description]
+~~~
 
-[에러 메시지 또는 증상 설명]
+**Root cause**
+- Cause 1
+- Cause 2
 
-```
+**Fix**
+1. First fix
+   ~~~bash
+   # Command example
+   ~~~
 
-**원인:**
-- 원인 1
-- 원인 2
+2. Second fix
+   ~~~bash
+   # Command example
+   ~~~
 
-**해결 방법:**
-
-1. 첫 번째 해결 방법
-   ```bash
-   # 명령어 예제
-   ```
-
-2. 두 번째 해결 방법
-   ```bash
-   # 명령어 예제
-   ```
-
-**확인:**
-   ```bash
-   # 해결 확인 명령어
-   ```
-
+**Verify**
+~~~bash
+# Verification command
+~~~
 ```
 
 ---
 
-## 추가 리소스 (Additional Resources)
+## Additional Resources
 
-### 프로젝트 문서
+### Project docs
+- [Main README](../README.md) — project overview
+- [Root `AGENTS.md`](../AGENTS.md) — agent router and always-on principles
+- [Structure guide](structure-guide.md) — (Reference) full structure/component map
+- [CLAUDE.md](../CLAUDE.md) — design/patterns/extra context
 
-- [메인 README](../README.md) - 프로젝트 개요
-- [CLAUDE.md](../AGENTS.md) - AGENTS를 위한 프로젝트 컨텍스트
-
-### 외부 문서
-
-- [LangGraph 공식 문서](https://langchain-ai.github.io/langgraph/)
-- [FastAPI 공식 문서](https://fastapi.tiangolo.com/)
-- [Alembic 마이그레이션 가이드](https://alembic.sqlalchemy.org/)
-- [Agent Protocol 스펙](https://github.com/AI-Engineer-Foundation/agent-protocol)
+### External docs
+- [LangGraph documentation](https://langchain-ai.github.io/langgraph/)
+- [FastAPI documentation](https://fastapi.tiangolo.com/)
+- [Alembic documentation](https://alembic.sqlalchemy.org/)
+- [Agent Protocol spec](https://github.com/langchain-ai/agent-protocol)

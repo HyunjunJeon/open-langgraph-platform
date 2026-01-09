@@ -2047,4 +2047,4 @@ JWT_SECRET_KEY=your-super-secret-key-change-in-production
 추가 정보는 다음 문서를 참고하세요:
 - [아키텍처 가이드](./architecture-ko.md)
 - [API 레퍼런스](./api-reference-ko.md)
-- [개발 가이드](./development-guide-ko.md)
+- [개발 가이드](./developer-guide-ko.md)
