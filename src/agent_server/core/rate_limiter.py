@@ -202,7 +202,7 @@ class InMemoryRateLimiter:
     - Less accurate than Redis sliding window
     """
 
-    def __init__(self, max_keys: int = 10000):
+    def __init__(self, max_keys: int = 10000) -> None:
         import threading
 
         self._counters: dict[str, tuple[int, float]] = {}  # key -> (count, window_start)

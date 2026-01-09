@@ -15,13 +15,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import db_manager
-from ..models.auth import User
 from ..models.organization import OrganizationRole
 from ..models.rate_limit import (
     OrgQuotaResponse,
@@ -31,6 +30,9 @@ from ..models.rate_limit import (
 )
 from ..services.organization_service import OrganizationService
 from ..services.quota_service import quota_service
+
+if TYPE_CHECKING:
+    from ..models.auth import User
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +61,7 @@ async def get_current_user_from_request(
 
     Note: Request 타입은 런타임에 주입됨
     """
-    from ..api.dependencies import get_current_user
+    from ..core.auth_deps import get_current_user
 
     return get_current_user(request)
 

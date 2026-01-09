@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -67,7 +67,7 @@ def is_otel_initialized() -> bool:
     return _otel_initialized
 
 
-def get_tracer(name: str = __name__):
+def get_tracer(name: str = __name__) -> Any:
     """OpenTelemetry tracer를 반환합니다.
 
     OpenTelemetry가 활성화되지 않았거나 초기화되지 않은 경우
@@ -96,11 +96,11 @@ def get_tracer(name: str = __name__):
 class _NoOpTracer:
     """OpenTelemetry가 설치되지 않은 경우를 위한 No-op tracer."""
 
-    def start_span(self, name: str, **kwargs):
+    def start_span(self, name: str, **kwargs) -> "_NoOpSpan":
         """No-op span을 반환합니다."""
         return _NoOpSpan()
 
-    def start_as_current_span(self, name: str, **kwargs):
+    def start_as_current_span(self, name: str, **kwargs) -> "_NoOpSpanContextManager":
         """No-op context manager를 반환합니다."""
         return _NoOpSpanContextManager()
 
@@ -108,36 +108,36 @@ class _NoOpTracer:
 class _NoOpSpan:
     """No-op span 구현."""
 
-    def end(self, **kwargs):
+    def end(self, **kwargs) -> None:
         """No-op."""
         pass
 
-    def set_attribute(self, key: str, value):
+    def set_attribute(self, key: str, value) -> None:
         """No-op."""
         pass
 
-    def set_status(self, status, description=None):
+    def set_status(self, status, description=None) -> None:
         """No-op."""
         pass
 
-    def record_exception(self, exception, **kwargs):
+    def record_exception(self, exception, **kwargs) -> None:
         """No-op."""
         pass
 
-    def __enter__(self):
+    def __enter__(self) -> "_NoOpSpan":
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args) -> None:
         pass
 
 
 class _NoOpSpanContextManager:
     """No-op span context manager."""
 
-    def __enter__(self):
+    def __enter__(self) -> "_NoOpSpan":
         return _NoOpSpan()
 
-    def __exit__(self, *args):
+    def __exit__(self, *args) -> None:
         pass
 
 
@@ -200,14 +200,12 @@ def setup_opentelemetry(app: FastAPI) -> bool:
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         # 1. Resource 정의: 서비스 메타데이터
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        resource = Resource.create(
-            {
-                "service.name": _OTEL_SERVICE_NAME,
-                "service.version": _OTEL_SERVICE_VERSION,
-                "deployment.environment": _OTEL_ENVIRONMENT,
-                "telemetry.sdk.language": "python",
-            }
-        )
+        resource = Resource.create({
+            "service.name": _OTEL_SERVICE_NAME,
+            "service.version": _OTEL_SERVICE_VERSION,
+            "deployment.environment": _OTEL_ENVIRONMENT,
+            "telemetry.sdk.language": "python",
+        })
 
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         # 2. TracerProvider 설정

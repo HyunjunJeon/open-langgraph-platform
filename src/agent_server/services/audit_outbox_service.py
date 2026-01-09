@@ -39,8 +39,8 @@ from typing import Any
 from sqlalchemy import delete, insert, text
 
 from ..core.database import db_manager
-from ..core.rls import set_rls_bypass
 from ..core.orm import AuditLog, AuditLogOutbox
+from ..core.rls import set_rls_bypass
 from .partition_service import partition_service
 
 logger = logging.getLogger(__name__)
@@ -116,7 +116,7 @@ class LRURetryCache:
         max_size: Maximum number of entries to track
     """
 
-    def __init__(self, max_size: int = 1000):
+    def __init__(self, max_size: int = 1000) -> None:
         from collections import OrderedDict
 
         self._cache: OrderedDict[str, int] = OrderedDict()
@@ -249,9 +249,7 @@ class AuditOutboxService:
 
         except TimeoutError:
             self.metrics.dropped += 1
-            logger.warning(
-                "Audit insert timed out after %ss", INSERT_TIMEOUT_SECONDS
-            )
+            logger.warning("Audit insert timed out after %ss", INSERT_TIMEOUT_SECONDS)
             return None
 
         except Exception as e:
@@ -419,9 +417,7 @@ class AuditOutboxService:
         """
         error_str = str(error).lower()
         return (
-            "no partition" in error_str
-            or "partition constraint" in error_str
-            or "partition of relation" in error_str
+            "no partition" in error_str or "partition constraint" in error_str or "partition of relation" in error_str
         )
 
     async def _move_batch(self) -> int:
@@ -600,9 +596,7 @@ class AuditOutboxService:
 
                 # Delete successfully processed records
                 if success_ids:
-                    delete_stmt = delete(AuditLogOutbox).where(
-                        AuditLogOutbox.id.in_(success_ids)
-                    )
+                    delete_stmt = delete(AuditLogOutbox).where(AuditLogOutbox.id.in_(success_ids))
                     await conn.execute(delete_stmt)
 
                 # Mark poison-pill records as processed (so they're not retried forever)

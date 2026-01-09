@@ -26,7 +26,7 @@ import contextlib
 import logging
 import os
 from collections.abc import AsyncIterator
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from .base_broker import BaseBrokerManager, BaseRunBroker
@@ -34,7 +34,7 @@ from .base_broker import BaseBrokerManager, BaseRunBroker
 logger = logging.getLogger(__name__)
 
 
-class BackpressurePolicy(str, Enum):
+class BackpressurePolicy(StrEnum):
     """Queue backpressure behavior when the broker is full."""
 
     BLOCK = "block"
@@ -84,7 +84,7 @@ class RunBroker(BaseRunBroker):
     - Consumer: streaming_service.stream_run_execution()에서 수신
     """
 
-    def __init__(self, run_id: str):
+    def __init__(self, run_id: str) -> None:
         self.run_id = run_id
         queue_maxsize = _parse_int_env("BROKER_QUEUE_MAXSIZE", 1000)
         self._backpressure_policy = _parse_backpressure_policy()
@@ -353,9 +353,7 @@ class BrokerManager(BaseBrokerManager):
                 for run_id, broker in self._brokers.items():
                     # 완료되고, 비어있고, 1시간 이상 경과한 브로커 삭제
                     if (
-                        broker.is_finished()
-                        and broker.is_empty()
-                        and broker.get_age() > 3600  # 1시간 = 3600초
+                        broker.is_finished() and broker.is_empty() and broker.get_age() > 3600  # 1시간 = 3600초
                     ):
                         to_remove.append(run_id)
 

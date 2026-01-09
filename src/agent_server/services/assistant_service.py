@@ -261,7 +261,7 @@ class AssistantService(TracedService):
         langgraph_service (LangGraphService): LangGraph 서비스 인스턴스
     """
 
-    def __init__(self, session: AsyncSession, langgraph_service: LangGraphService):
+    def __init__(self, session: AsyncSession, langgraph_service: LangGraphService) -> None:
         """AssistantService 초기화
 
         Args:
@@ -322,9 +322,7 @@ class AssistantService(TracedService):
             raise HTTPException(400, f"Failed to load graph: {str(e)}") from e
 
         config: dict[str, Any] = dict(request.config) if isinstance(request.config, dict) else {}
-        context_dict: dict[str, Any] | None = (
-            dict(request.context) if isinstance(request.context, dict) else None
-        )
+        context_dict: dict[str, Any] | None = dict(request.context) if isinstance(request.context, dict) else None
 
         # LangGraph 0.6.0+에서는 context가 configurable의 대체품
         # 둘 다 지정하면 충돌 방지
@@ -469,9 +467,7 @@ class AssistantService(TracedService):
             stmt = stmt.where(AssistantORM.graph_id == request.graph_id)
 
         if request.metadata:
-            metadata_filter = (
-                dict(request.metadata) if isinstance(request.metadata, dict) else request.metadata
-            )
+            metadata_filter = dict(request.metadata) if isinstance(request.metadata, dict) else request.metadata
             if isinstance(metadata_filter, dict):
                 stmt = stmt.where(AssistantORM.metadata_dict.op("@>")(metadata_filter))
 
@@ -504,9 +500,7 @@ class AssistantService(TracedService):
         Returns:
             int: 필터 조건을 만족하는 어시스턴트 총 개수
         """
-        stmt = (
-            select(func.count()).select_from(AssistantORM).where(_build_access_filter(user_identity, org_id))
-        )
+        stmt = select(func.count()).select_from(AssistantORM).where(_build_access_filter(user_identity, org_id))
 
         # search_assistants()와 동일한 필터 적용
         if request.name:
@@ -519,9 +513,7 @@ class AssistantService(TracedService):
             stmt = stmt.where(AssistantORM.graph_id == request.graph_id)
 
         if request.metadata:
-            metadata_filter = (
-                dict(request.metadata) if isinstance(request.metadata, dict) else request.metadata
-            )
+            metadata_filter = dict(request.metadata) if isinstance(request.metadata, dict) else request.metadata
             if isinstance(metadata_filter, dict):
                 stmt = stmt.where(AssistantORM.metadata_dict.op("@>")(metadata_filter))
 
@@ -599,9 +591,7 @@ class AssistantService(TracedService):
         """
         metadata_dict = dict(request.metadata) if isinstance(request.metadata, dict) else {}
         config: dict[str, Any] = dict(request.config) if isinstance(request.config, dict) else {}
-        context_dict: dict[str, Any] | None = (
-            dict(request.context) if isinstance(request.context, dict) else None
-        )
+        context_dict: dict[str, Any] | None = dict(request.context) if isinstance(request.context, dict) else None
 
         configurable_section = config.get("configurable")
         if isinstance(configurable_section, dict) and context_dict:

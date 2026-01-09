@@ -57,24 +57,16 @@ class AgentCardGenerator:
         docstring_meta = self._parse_docstring(graph)
 
         # Build name
-        name = (
-            decorator_meta.get("name")
-            or docstring_meta.get("name")
-            or self._generate_name(graph_id)
-        )
+        name = decorator_meta.get("name") or docstring_meta.get("name") or self._generate_name(graph_id)
 
         # Build description
         description = (
-            decorator_meta.get("description")
-            or docstring_meta.get("description")
-            or f"LangGraph agent: {graph_id}"
+            decorator_meta.get("description") or docstring_meta.get("description") or f"LangGraph agent: {graph_id}"
         )
 
         # Build skills
         skills_data = (
-            decorator_meta.get("skills")
-            or docstring_meta.get("skills")
-            or self._extract_skills_from_tools(graph)
+            decorator_meta.get("skills") or docstring_meta.get("skills") or self._extract_skills_from_tools(graph)
         )
 
         skills = self._build_skills(skills_data)
@@ -147,11 +139,7 @@ class AgentCardGenerator:
             )
             if skills_match:
                 skill_names = [s.strip() for s in skills_match.group(1).split(",")]
-                meta["skills"] = [
-                    {"id": s.lower().replace(" ", "_"), "name": s}
-                    for s in skill_names
-                    if s
-                ]
+                meta["skills"] = [{"id": s.lower().replace(" ", "_"), "name": s} for s in skill_names if s]
 
         except Exception as e:
             logger.debug(f"Error parsing docstring: {e}")
@@ -170,9 +158,7 @@ class AgentCardGenerator:
                 tool_name = getattr(tool, "name", str(tool))
                 tool_desc = getattr(tool, "description", "")
 
-                skills.append(
-                    {"id": tool_name, "name": tool_name, "description": tool_desc}
-                )
+                skills.append({"id": tool_name, "name": tool_name, "description": tool_desc})
 
             return skills if skills else None
 

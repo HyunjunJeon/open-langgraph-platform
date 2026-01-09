@@ -5,6 +5,7 @@ Provides A2A endpoints for LangGraph agents.
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 from a2a.server.apps import A2AFastAPIApplication
 from a2a.server.request_handlers import DefaultRequestHandler
@@ -17,6 +18,9 @@ from .converter import A2AMessageConverter
 from .detector import is_a2a_compatible
 from .executor import LangGraphA2AExecutor
 
+if TYPE_CHECKING:
+    from ..services.langgraph_service import LangGraphService
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/a2a", tags=["A2A Protocol"])
@@ -28,7 +32,7 @@ _a2a_apps: dict[str, A2AFastAPIApplication] = {}
 _task_store = InMemoryTaskStore()
 
 
-def _get_langgraph_service():
+def _get_langgraph_service() -> "LangGraphService | None":
     """Get LangGraph service (lazy import to avoid circular deps)"""
     try:
         from ..services.langgraph_service import get_langgraph_service
@@ -78,9 +82,7 @@ async def get_or_create_a2a_app(graph_id: str) -> A2AFastAPIApplication:
         raise HTTPException(status_code=404, detail=f"Graph '{graph_id}' not found")
 
     if not is_a2a_compatible(graph):
-        raise HTTPException(
-            status_code=404, detail=f"Graph '{graph_id}' is not A2A compatible (no 'messages' field)"
-        )
+        raise HTTPException(status_code=404, detail=f"Graph '{graph_id}' is not A2A compatible (no 'messages' field)")
 
     # Create Agent Card
     generator = AgentCardGenerator(base_url=_get_base_url())
@@ -129,13 +131,11 @@ async def list_a2a_agents() -> dict:
     for graph_id in service.get_graph_ids():
         graph = await service.get_graph(graph_id)
         if graph and is_a2a_compatible(graph):
-            agents.append(
-                {
-                    "graph_id": graph_id,
-                    "agent_card_url": f"{base_url}/a2a/{graph_id}/.well-known/agent-card.json",
-                    "endpoint_url": f"{base_url}/a2a/{graph_id}",
-                }
-            )
+            agents.append({
+                "graph_id": graph_id,
+                "agent_card_url": f"{base_url}/a2a/{graph_id}/.well-known/agent-card.json",
+                "endpoint_url": f"{base_url}/a2a/{graph_id}",
+            })
 
     return {"agents": agents, "count": len(agents)}
 

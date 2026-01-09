@@ -68,22 +68,20 @@ BLOCKED_IP_RANGES: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = [
 ]
 
 # Blocked hostnames (case-insensitive)
-BLOCKED_HOSTNAMES: frozenset[str] = frozenset(
-    {
-        # Localhost variants
-        "localhost",
-        "localhost.localdomain",
-        "local",
-        # Cloud metadata endpoints
-        "metadata.google.internal",  # GCP
-        "169.254.169.254",  # AWS/GCP/Azure metadata IP
-        "metadata",  # Short form
-        # Kubernetes internal
-        "kubernetes.default.svc",
-        "kubernetes.default",
-        "kubernetes",
-    }
-)
+BLOCKED_HOSTNAMES: frozenset[str] = frozenset({
+    # Localhost variants
+    "localhost",
+    "localhost.localdomain",
+    "local",
+    # Cloud metadata endpoints
+    "metadata.google.internal",  # GCP
+    "169.254.169.254",  # AWS/GCP/Azure metadata IP
+    "metadata",  # Short form
+    # Kubernetes internal
+    "kubernetes.default.svc",
+    "kubernetes.default",
+    "kubernetes",
+})
 
 # Allowed schemes
 ALLOWED_SCHEMES: frozenset[str] = frozenset({"http", "https"})
@@ -108,7 +106,7 @@ class SSRFValidationError(ValueError):
         reason: Human-readable explanation of why the URL was rejected
     """
 
-    def __init__(self, message: str, url: str | None = None, reason: str | None = None):
+    def __init__(self, message: str, url: str | None = None, reason: str | None = None) -> None:
         super().__init__(message)
         self.url = url[:100] if url else None  # Truncate for safety
         self.reason = reason

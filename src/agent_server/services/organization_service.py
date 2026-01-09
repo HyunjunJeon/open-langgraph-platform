@@ -210,7 +210,7 @@ class OrganizationService:
         session (AsyncSession): SQLAlchemy 비동기 세션
     """
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         """OrganizationService 초기화
 
         Args:
@@ -239,9 +239,7 @@ class OrganizationService:
         role = await self.session.scalar(stmt)
         return OrganizationRole(role) if role else None
 
-    async def _require_role(
-        self, org_id: str, user_id: str, min_roles: list[OrganizationRole]
-    ) -> OrganizationRole:
+    async def _require_role(self, org_id: str, user_id: str, min_roles: list[OrganizationRole]) -> OrganizationRole:
         """최소 역할 요구 검사
 
         사용자가 지정된 역할 중 하나 이상을 가지고 있는지 확인합니다.
@@ -269,9 +267,7 @@ class OrganizationService:
     # Organization CRUD
     # ---------------------------------------------------------------------------
 
-    async def create_organization(
-        self, request: OrganizationCreate, user_identity: str
-    ) -> Organization:
+    async def create_organization(self, request: OrganizationCreate, user_identity: str) -> Organization:
         """새로운 조직 생성
 
         조직을 생성하고 생성자를 OWNER로 자동 추가합니다.
@@ -301,9 +297,7 @@ class OrganizationService:
             raise HTTPException(400, "Could not generate a valid slug from the organization name")
 
         # slug 중복 검사
-        existing = await self.session.scalar(
-            select(OrganizationORM).where(OrganizationORM.slug == slug)
-        )
+        existing = await self.session.scalar(select(OrganizationORM).where(OrganizationORM.slug == slug))
         if existing:
             raise HTTPException(409, f"Organization with slug '{slug}' already exists")
 
@@ -368,9 +362,7 @@ class OrganizationService:
         Raises:
             HTTPException(404): 조직이 없거나 멤버가 아님
         """
-        org = await self.session.scalar(
-            select(OrganizationORM).where(OrganizationORM.slug == slug)
-        )
+        org = await self.session.scalar(select(OrganizationORM).where(OrganizationORM.slug == slug))
         if not org:
             raise HTTPException(404, f"Organization with slug '{slug}' not found")
 
@@ -389,9 +381,7 @@ class OrganizationService:
             OrganizationList: 조직 목록
         """
         # 사용자가 멤버인 조직 ID 조회
-        member_stmt = select(OrganizationMemberORM.org_id).where(
-            OrganizationMemberORM.user_id == user_identity
-        )
+        member_stmt = select(OrganizationMemberORM.org_id).where(OrganizationMemberORM.user_id == user_identity)
         org_ids = list(await self.session.scalars(member_stmt))
 
         if not org_ids:
@@ -404,9 +394,7 @@ class OrganizationService:
 
         return OrganizationList(organizations=org_list, total=len(org_list))
 
-    async def update_organization(
-        self, org_id: str, request: OrganizationUpdate, user_identity: str
-    ) -> Organization:
+    async def update_organization(self, org_id: str, request: OrganizationUpdate, user_identity: str) -> Organization:
         """조직 정보 업데이트
 
         ADMIN 이상 역할이 필요합니다.
@@ -424,9 +412,7 @@ class OrganizationService:
             HTTPException(404): 조직이 없거나 멤버가 아님
         """
         # ADMIN 이상 역할 필요
-        await self._require_role(
-            org_id, user_identity, [OrganizationRole.OWNER, OrganizationRole.ADMIN]
-        )
+        await self._require_role(org_id, user_identity, [OrganizationRole.OWNER, OrganizationRole.ADMIN])
 
         org = await self.session.get(OrganizationORM, org_id)
         if not org:
@@ -639,9 +625,7 @@ class OrganizationService:
         )
         return to_member_pydantic(updated_member)
 
-    async def remove_member(
-        self, org_id: str, user_id: str, user_identity: str
-    ) -> dict:
+    async def remove_member(self, org_id: str, user_id: str, user_identity: str) -> dict:
         """조직에서 멤버 제거
 
         ADMIN 이상 역할이 필요합니다.
@@ -731,9 +715,7 @@ class OrganizationService:
 
         return APIKeyList(api_keys=key_list, total=len(key_list))
 
-    async def create_api_key(
-        self, org_id: str, request: APIKeyCreate, user_identity: str
-    ) -> APIKeyWithSecret:
+    async def create_api_key(self, org_id: str, request: APIKeyCreate, user_identity: str) -> APIKeyWithSecret:
         """API 키 생성
 
         ADMIN 이상 역할이 필요합니다.
@@ -748,9 +730,7 @@ class OrganizationService:
             APIKeyWithSecret: 생성된 API 키 (raw_key 포함)
         """
         # ADMIN 이상 역할 필요
-        await self._require_role(
-            org_id, user_identity, [OrganizationRole.OWNER, OrganizationRole.ADMIN]
-        )
+        await self._require_role(org_id, user_identity, [OrganizationRole.OWNER, OrganizationRole.ADMIN])
 
         # API 키 생성
         raw_key, key_hash, key_prefix = generate_api_key()
@@ -789,9 +769,7 @@ class OrganizationService:
             raw_key=raw_key,
         )
 
-    async def revoke_api_key(
-        self, org_id: str, key_id: str, user_identity: str
-    ) -> APIKey:
+    async def revoke_api_key(self, org_id: str, key_id: str, user_identity: str) -> APIKey:
         """API 키 폐기
 
         ADMIN 이상 역할이 필요합니다.
@@ -810,9 +788,7 @@ class OrganizationService:
             HTTPException(400): 이미 폐기됨
         """
         # ADMIN 이상 역할 필요
-        await self._require_role(
-            org_id, user_identity, [OrganizationRole.OWNER, OrganizationRole.ADMIN]
-        )
+        await self._require_role(org_id, user_identity, [OrganizationRole.OWNER, OrganizationRole.ADMIN])
 
         key = await self.session.scalar(
             select(APIKeyORM).where(
@@ -828,9 +804,7 @@ class OrganizationService:
 
         # 폐기 시간 기록
         await self.session.execute(
-            update(APIKeyORM)
-            .where(APIKeyORM.key_id == key_id)
-            .values(revoked_at=datetime.now(UTC))
+            update(APIKeyORM).where(APIKeyORM.key_id == key_id).values(revoked_at=datetime.now(UTC))
         )
         await self.session.commit()
 
@@ -853,9 +827,7 @@ class OrganizationService:
         key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
 
         # DB에서 키 조회
-        key = await self.session.scalar(
-            select(APIKeyORM).where(APIKeyORM.key_hash == key_hash)
-        )
+        key = await self.session.scalar(select(APIKeyORM).where(APIKeyORM.key_hash == key_hash))
 
         if not key:
             return None
@@ -870,9 +842,7 @@ class OrganizationService:
 
         # last_used_at 업데이트
         await self.session.execute(
-            update(APIKeyORM)
-            .where(APIKeyORM.key_id == key.key_id)
-            .values(last_used_at=datetime.now(UTC))
+            update(APIKeyORM).where(APIKeyORM.key_id == key.key_id).values(last_used_at=datetime.now(UTC))
         )
         await self.session.commit()
 

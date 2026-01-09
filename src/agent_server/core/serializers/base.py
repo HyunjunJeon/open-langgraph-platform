@@ -16,7 +16,7 @@ class Serializer(ABC):
 class SerializationError(Exception):
     """Raised when serialization fails"""
 
-    def __init__(self, message: str, obj_type: str, original_error: Exception | None = None):
+    def __init__(self, message: str, obj_type: str, original_error: Exception | None = None) -> None:
         super().__init__(message)
         self.obj_type = obj_type
         self.original_error = original_error

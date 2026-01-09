@@ -1,8 +1,9 @@
 # Open LangGraph Platform
 
 셀프 호스팅 AI 에이전트 백엔드. 벤더 종속 없이 LangGraph의 강력한 기능을 활용하세요.  
-LangGraph Platform을 자체 인프라로 대체하세요.  
-에이전트 오케스트레이션을 완전히 제어하고자 하는 개발자를 위해 FastAPI + PostgreSQL로 구축되었습니다.
+
+- LangGraph Platform을 자체 인프라로 대체하세요.   
+- 에이전트 오케스트레이션을 완전히 제어하고자 하는 개발자를 위해 FastAPI + PostgreSQL로 구축되었습니다.  
 
 **Agent Protocol 준수**: Open LangGraph는 프로덕션 환경에서 LLM 에이전트를 제공하기 위한 오픈소스 표준인 [Agent Protocol](https://github.com/langchain-ai/agent-protocol) 사양을 구현합니다.
 
@@ -12,7 +13,7 @@ LangGraph Platform을 자체 인프라로 대체하세요.
 
 | 기능                | LangGraph Platform         | Open LangGraph (셀프 호스팅)                               |
 | ---------------------- | -------------------------- | ------------------------------------------------- |
-| **비용**               | 월 $$$             | **무료** (셀프 호스팅, 인프라 비용만 발생)           |
+| **비용**               | 비용 발생            | **무료** (셀프 호스팅, 인프라 비용만 발생)           |
 | **데이터 제어**       | 타사 호스팅         | **자체 인프라**                           |
 | **벤더 종속**     | 높은 의존성            | **제로 종속**                                  |
 | **커스터마이징**      | 플랫폼 제한사항       | **완전한 제어**                                  |
@@ -27,9 +28,10 @@ LangGraph Platform을 자체 인프라로 대체하세요.
 - 셀프 호스팅: 자체 인프라에서 실행, 자체 규칙 적용
 - 드롭인 대체: 기존 LangGraph Client SDK를 변경 없이 사용
 - 프로덕션 준비: PostgreSQL 영속성, 스트리밍, 인증
-- 빠른 설정: Docker로 5분 만에 배포
+- 빠른 설정: Docker로 빠르게 배포
 - Agent Protocol 준수: 오픈소스 [Agent Protocol](https://github.com/langchain-ai/agent-protocol) 사양 구현
 - Agent Chat UI 호환: [LangChain의 Agent Chat UI](https://github.com/langchain-ai/agent-chat-ui)와 원활하게 작동
+- AG-UI(CopilotKit) 호환: AGUI 프로토콜을 지원하여 다양한 UI와 원활하게 작동
 
 ## 빠른 시작
 
@@ -73,7 +75,7 @@ curl http://localhost:8000/health
 open http://localhost:8000/docs
 ```
 
-## Compatible Web UI Toolkie
+## Compatible Web UI Toolkit
 
 Open LangGraph는 LangGraph API를 지원하는 여러 프론트엔드와 호환됩니다.
 
@@ -173,18 +175,26 @@ SDK      API    Management      Storage
 
 ```text
 open-langgraph-platform/
-├── open_langgraph.json  # 그래프 구성
+├── open_langgraph.json  # 그래프 구성 정의
 ├── auth.py              # 인증 설정
-├── graphs/              # 에이전트 정의
-│   └── react_agent/     # ReAct 에이전트 예제
+├── alembic/             # 데이터베이스 마이그레이션
+├── graphs/              # 에이전트 그래프 정의
+│   ├── react_agent/     # ReAct 에이전트
+│   ├── react_agent_hitl/# HITL 포함 ReAct 에이전트
+│   └── subgraph_agent/  # 서브그래프 에이전트
 ├── src/agent_server/    # FastAPI 애플리케이션
-│   ├── main.py         # 애플리케이션 진입점
-│   ├── core/           # 데이터베이스 및 인프라
-│   ├── models/         # Pydantic 스키마
-│   ├── services/       # 비즈니스 로직
-│   └── utils/          # 헬퍼 함수
-├── tests/              # 테스트 스위트
-└── deployments/        # Docker 및 K8s 구성
+│   ├── main.py          # 애플리케이션 진입점
+│   ├── a2a/             # Agent-to-Agent 프로토콜
+│   ├── api/             # API 라우트 핸들러
+│   ├── core/            # 핵심 인프라 및 설정
+│   ├── middleware/      # 미들웨어 (인증, 로깅 등)
+│   ├── models/          # 데이터 모델 (Pydantic/ORM)
+│   ├── observability/   # 관측성 (OpenTelemetry)
+│   ├── services/        # 비즈니스 로직
+│   └── utils/           # 유틸리티 함수
+├── tests/               # 테스트 스위트
+├── deployments/         # 배포 구성 (Docker)
+└── run_server.py        # 개발 서버 실행 스크립트
 ```
 
 ## 구성

@@ -18,15 +18,15 @@ class MemoryCheckpointerAdapter(CheckpointerAdapter):
     def __init__(self, dsn: str | None = None, options: dict[str, Any] | None = None) -> None:
         super().__init__(dsn, options)
         self._dsn = None
-        self._checkpointer = None
-        self._store = None
+        self._checkpointer: MemorySaver | None = None
+        self._store: InMemoryStore | None = None
 
-    async def get_checkpointer(self):
+    async def get_checkpointer(self) -> MemorySaver:
         if self._checkpointer is None:
             self._checkpointer = MemorySaver()
         return self._checkpointer
 
-    async def get_store(self):
+    async def get_store(self) -> InMemoryStore:
         if self._store is None:
             self._store = InMemoryStore()
         return self._store

@@ -17,31 +17,28 @@ class PostgresCheckpointerAdapter(CheckpointerAdapter):
 
     def __init__(self, dsn: str | None, options: dict[str, Any] | None = None) -> None:
         super().__init__(dsn, options)
-        self._dsn = self._normalize_dsn(self._dsn)
-        self._checkpointer = None
+        # normalize_dsn verifies dsn is not None and returns str
+        self._dsn: str = self._normalize_dsn(self._dsn)
+        self._checkpointer: AsyncPostgresSaver | None = None
         self._checkpointer_cm = None
-        self._store = None
+        self._store: AsyncPostgresStore | None = None
         self._store_cm = None
 
         self._setup_on_init = self._options.get("setup_on_init", True)
         self._checkpointer_options = self._read_options("checkpointer")
         self._store_options = self._read_options("store")
 
-    async def get_checkpointer(self):
+    async def get_checkpointer(self) -> AsyncPostgresSaver:
         if self._checkpointer is None:
-            self._checkpointer_cm = AsyncPostgresSaver.from_conn_string(
-                self._dsn, **self._checkpointer_options
-            )
+            self._checkpointer_cm = AsyncPostgresSaver.from_conn_string(self._dsn, **self._checkpointer_options)
             self._checkpointer = await self._checkpointer_cm.__aenter__()
             if self._setup_on_init:
                 await self._checkpointer.setup()
         return self._checkpointer
 
-    async def get_store(self):
+    async def get_store(self) -> AsyncPostgresStore:
         if self._store is None:
-            self._store_cm = AsyncPostgresStore.from_conn_string(
-                self._dsn, **self._store_options
-            )
+            self._store_cm = AsyncPostgresStore.from_conn_string(self._dsn, **self._store_options)
             self._store = await self._store_cm.__aenter__()
             if self._setup_on_init:
                 await self._store.setup()
@@ -63,9 +60,7 @@ class PostgresCheckpointerAdapter(CheckpointerAdapter):
         if value is None:
             return {}
         if not isinstance(value, dict):
-            raise ValueError(
-                f"Postgres checkpointer option '{key}' must be a JSON object."
-            )
+            raise ValueError(f"Postgres checkpointer option '{key}' must be a JSON object.")
         return value
 
     @staticmethod
@@ -79,7 +74,5 @@ class PostgresCheckpointerAdapter(CheckpointerAdapter):
             dsn = dsn.replace("postgres://", "postgresql://", 1)
 
         if not dsn.startswith("postgresql://"):
-            raise ValueError(
-                "Postgres checkpointer DSN must start with postgresql://"
-            )
+            raise ValueError("Postgres checkpointer DSN must start with postgresql://")
         return dsn
